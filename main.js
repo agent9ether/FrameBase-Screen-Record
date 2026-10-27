@@ -9,7 +9,7 @@ function createWindow() {
   studioWindow = new BrowserWindow({
     width: 1440, height: 920, minWidth: 1100, minHeight: 720,
     title: 'FrameBase Studio', backgroundColor: '#0b0c0e',
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
   });
   studioWindow.loadFile('index.html');
   studioWindow.on('close', event => {
@@ -27,12 +27,12 @@ function createControlWindow() {
   }
   const area = screen.getPrimaryDisplay().workArea;
   controlWindow = new BrowserWindow({
-    width: 510, height: 70,
-    x: Math.round(area.x + (area.width - 510) / 2), y: area.y + area.height - 92,
-    title: 'FrameBase Recording Controls', backgroundColor: '#111315',
-    frame: false, transparent: false, resizable: false, movable: true,
-    alwaysOnTop: true, skipTaskbar: true, hasShadow: true,
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
+    width: 560, height: 74,
+    x: Math.round(area.x + (area.width - 560) / 2), y: area.y + area.height - 94,
+    title: 'FrameBase Recording Controls', backgroundColor: '#00000000',
+    frame: false, transparent: true, resizable: false, movable: true,
+    alwaysOnTop: true, skipTaskbar: true, hasShadow: false,
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
   });
   controlWindow.setAlwaysOnTop(true);
   controlWindow.setVisibleOnAllWorkspaces(true);

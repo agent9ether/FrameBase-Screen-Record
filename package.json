@@ -12,5 +12,8 @@
   },
   "allowScripts": {
     "electron@38.8.6": true
+  },
+  "dependencies": {
+    "@fix-webm-duration/fix": "^1.0.1"
   }
 }

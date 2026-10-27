@@ -1,6 +1,12 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const { fixWebmDuration } = require('@fix-webm-duration/fix');
 contextBridge.exposeInMainWorld('studio', {
   getSources: () => ipcRenderer.invoke('capture:sources'),
+  fixWebmDuration: async (data, duration) => {
+    const blob = new Blob([data], { type: 'video/webm' });
+    const fixed = await fixWebmDuration(blob, duration, { logger: false });
+    return fixed.arrayBuffer();
+  },
   startFloatingControls: () => ipcRenderer.send('recording:started'),
   setPaused: paused => ipcRenderer.send('recording:paused', paused),
   tick: seconds => ipcRenderer.send('recording:tick', seconds),
