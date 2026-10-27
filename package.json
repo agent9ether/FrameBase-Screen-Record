@@ -1,0 +1,16 @@
+{
+  "name": "frameforge-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A desktop screen recorder with a built-in editing space",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^38.0.0"
+  },
+  "allowScripts": {
+    "electron@38.8.6": true
+  }
+}
