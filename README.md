@@ -14,6 +14,7 @@ On Windows, choose a screen or app window in the recording dialog and allow the 
 
 - Electron desktop shell
 - Screen or window recording with pause and stop controls
+- Always-on-top floating controls while recording, so the full studio can stay hidden
 - Microphone option
 - Import and preview local video files
 - Starter editing workspace with preview, inspector, and timeline layout
