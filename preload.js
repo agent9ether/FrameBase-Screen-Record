@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('studio', {
     const fixed = await fixWebmDuration(blob, duration, { logger: false });
     return fixed.arrayBuffer();
   },
+  saveProject: payload => ipcRenderer.invoke('project:save', payload),
+  openProject: () => ipcRenderer.invoke('project:open'),
+  exportVideo: options => ipcRenderer.invoke('video:export', options),
   startFloatingControls: () => ipcRenderer.send('recording:started'),
   setPaused: paused => ipcRenderer.send('recording:paused', paused),
   tick: seconds => ipcRenderer.send('recording:tick', seconds),

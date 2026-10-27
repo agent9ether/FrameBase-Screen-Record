@@ -20,6 +20,8 @@ On Windows, choose a screen or app window in the recording dialog and allow the 
 - Microphone option
 - Import and preview local video files
 - Starter editing workspace with preview, inspector, and timeline layout
-- Export of the source recording or imported clip
+- Export of complete source clips as WebM, plus MP4 conversion with FFmpeg installed
+- Save and reopen portable `.framebase` project files with their source video
+- Preview zoom, crop framing, and draggable text overlays
 
-The editing controls are an early foundation. Timeline trimming, effects, and MP4 transcoding are future work; recordings currently export in WebM format.
+Zoom, crop framing, and draggable text overlays are available in the preview and are saved with the project. Export preserves the full source clip; MP4 and format conversion require FFmpeg on PATH.

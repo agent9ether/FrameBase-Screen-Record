@@ -1,5 +1,10 @@
-const { app, BrowserWindow, desktopCapturer, ipcMain, screen, session } = require('electron');
+const { app, BrowserWindow, desktopCapturer, dialog, ipcMain, screen, session } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
+const execFileAsync = promisify(execFile);
 
 let studioWindow = null;
 let controlWindow = null;
@@ -50,6 +55,35 @@ function showStudio() {
 }
 
 app.whenReady().then(() => {
+  ipcMain.handle('project:save', async (_event, payload) => {
+    const result = await dialog.showSaveDialog(studioWindow, { title: 'Save FrameBase project', defaultPath: `${payload.name || 'Untitled project'}.framebase`, filters: [{ name: 'FrameBase project', extensions: ['framebase'] }] });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    await fs.writeFile(result.filePath, JSON.stringify(payload));
+    return { canceled: false, filePath: result.filePath };
+  });
+  ipcMain.handle('project:open', async () => {
+    const result = await dialog.showOpenDialog(studioWindow, { title: 'Open FrameBase project', properties: ['openFile'], filters: [{ name: 'FrameBase project', extensions: ['framebase'] }] });
+    if (result.canceled || !result.filePaths[0]) return null;
+    return JSON.parse(await fs.readFile(result.filePaths[0], 'utf8'));
+  });
+  ipcMain.handle('video:export', async (_event, { bytes, name, format, inputType }) => {
+    const extension = format === 'mp4' ? 'mp4' : 'webm';
+    const result = await dialog.showSaveDialog(studioWindow, { title: `Export ${extension.toUpperCase()} video`, defaultPath: `${name || 'FrameBase recording'}.${extension}`, filters: [{ name: `${extension.toUpperCase()} video`, extensions: [extension] }] });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    const source = Buffer.from(bytes);
+    if (format === 'webm' && inputType === 'video/webm') { await fs.writeFile(result.filePath, source); return { canceled: false, filePath: result.filePath }; }
+    const temporary = path.join(os.tmpdir(), `framebase-${Date.now()}.webm`);
+    const converted = path.join(os.tmpdir(), `framebase-${Date.now()}.${extension}`);
+    await fs.writeFile(temporary, source);
+    try {
+      const videoArgs = format === 'mp4' ? ['-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart'] : ['-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0', '-c:a', 'libopus', '-b:a', '192k'];
+      await execFileAsync('ffmpeg', ['-y', '-i', temporary, '-map', '0:v:0', '-map', '0:a?', ...videoArgs, converted], { windowsHide: true, maxBuffer: 16 * 1024 * 1024 });
+      await fs.rename(converted, result.filePath);
+      return { canceled: false, filePath: result.filePath };
+    } catch (error) {
+      throw new Error(error.code === 'ENOENT' ? 'MP4 export needs FFmpeg installed and available on PATH.' : `MP4 conversion failed: ${error.stderr || error.message}`);
+    } finally { await fs.rm(temporary, { force: true }); await fs.rm(converted, { force: true }); }
+  });
   ipcMain.handle('capture:sources', async () => {
     const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 320, height: 200 } });
     return sources.map(({ id, name, thumbnail }) => ({ id, name, type: id.startsWith('window:') ? 'window' : 'screen', image: thumbnail.toDataURL() }));
