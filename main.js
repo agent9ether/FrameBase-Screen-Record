@@ -1,9 +1,10 @@
-const { app, BrowserWindow, desktopCapturer, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, desktopCapturer, ipcMain, screen, session } = require('electron');
 const path = require('node:path');
 
 let studioWindow = null;
 let controlWindow = null;
 let isRecording = false;
+let captureSelection = null;
 
 function createWindow() {
   studioWindow = new BrowserWindow({
@@ -51,7 +52,23 @@ function showStudio() {
 app.whenReady().then(() => {
   ipcMain.handle('capture:sources', async () => {
     const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 320, height: 200 } });
-    return sources.map(({ id, name, thumbnail }) => ({ id, name, image: thumbnail.toDataURL() }));
+    return sources.map(({ id, name, thumbnail }) => ({ id, name, type: id.startsWith('window:') ? 'window' : 'screen', image: thumbnail.toDataURL() }));
+  });
+  ipcMain.handle('capture:set-selection', (_event, sourceId, systemAudio) => {
+    captureSelection = { sourceId, systemAudio: Boolean(systemAudio) };
+  });
+  session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
+    try {
+      const selection = captureSelection;
+      captureSelection = null;
+      if (!selection) return callback(null);
+      const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 } });
+      const source = sources.find(item => item.id === selection.sourceId);
+      if (!source) return callback(null);
+      callback({ video: source, ...(selection.systemAudio && process.platform === 'win32' ? { audio: 'loopback' } : {}) });
+    } catch {
+      callback(null);
+    }
   });
   ipcMain.on('recording:started', () => {
     isRecording = true;

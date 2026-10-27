@@ -13,7 +13,8 @@ On Windows, choose a screen or app window in the recording dialog and allow the 
 ## Current scope
 
 - Electron desktop shell
-- Screen or window recording with pause and stop controls
+- Screen or app-window recording with an explicit source picker
+- System audio loopback on Windows, with optional microphone audio mixed in
 - Always-on-top floating controls while recording, so the full studio can stay hidden
 - Fixed WebM duration metadata so recordings can seek correctly in the editor
 - Microphone option
