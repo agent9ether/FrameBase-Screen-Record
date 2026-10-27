@@ -4,7 +4,7 @@ const path = require('node:path');
 function createWindow() {
   const win = new BrowserWindow({
     width: 1440, height: 920, minWidth: 1100, minHeight: 720,
-    title: 'Frameforge Studio', backgroundColor: '#0b0c0e',
+    title: 'FrameBase Studio', backgroundColor: '#0b0c0e',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
   win.loadFile('index.html');

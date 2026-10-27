@@ -1,4 +1,4 @@
-# Frameforge Studio
+# FrameBase Studio
 
 A desktop screen recorder with a built-in editing space. The first version includes screen and window capture, a local recording workflow, video import and preview, a basic timeline, and file export.
 
