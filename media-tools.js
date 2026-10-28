@@ -74,7 +74,7 @@ function createMediaTools({ workspaceDir, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe'
   async function ffmpegInfo() {
     if (!ffmpegCheck) {
       ffmpegCheck = run(ffmpeg, ['-hide_banner', '-version'], { windowsHide: true })
-        .then(({ stdout }) => ({ available: true, version: (/ffmpeg version (\S+)/.exec(stdout) || [])[1] || 'unknown' }))
+        .then(({ stdout }) => ({ available: true, version: (/ffmpeg version n?(\d[\w.]*?)(?:[-_\s]|$)/.exec(stdout) || [])[1] || 'unknown' }))
         .catch(() => ({ available: false, version: null }));
     }
     const info = await ffmpegCheck;
@@ -295,4 +295,4 @@ function createMediaTools({ workspaceDir, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe'
   return { workspaceDir, resolveInput, reserveOutput, ffmpegInfo, probe, trim, concat, addAudio, burnCaptions, extractFrame, convert, listVoices, speak, listFiles, kindOf };
 }
 
-module.exports = { createMediaTools, toSrt, srtTime, MEDIA_EXTENSIONS };
+module.exports = { createMediaTools, toSrt, srtTime, MEDIA_EXTENSIONS, MP4_OUT, WEBM_OUT, EVEN };

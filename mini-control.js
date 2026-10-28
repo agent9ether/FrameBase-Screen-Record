@@ -1,9 +1,25 @@
-const clock=document.querySelector('#clock');
-let paused=false;
-function format(seconds){return `${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`}
-document.querySelector('#pause').onclick=()=>window.studio.togglePause();
-document.querySelector('#stop').onclick=()=>window.studio.stop();
-document.querySelector('#studio').onclick=()=>window.studio.showStudio();
-window.studio.onMiniControl('control:agent',value=>{document.querySelector('#agent-badge').hidden=!value});
-window.studio.onMiniControl('control:tick',seconds=>clock.textContent=format(seconds));
-window.studio.onMiniControl('control:paused',value=>{paused=value;const button=document.querySelector('#pause');button.innerHTML=paused?'▶ <small>Resume</small>':'Ⅱ <small>Pause</small>';document.querySelector('.recording-state>span:nth-child(2)').textContent=paused?'PAUSED':'RECORDING';document.querySelector('.pulse').style.animationPlayState=paused?'paused':'running'});
+const clock = document.querySelector('#clock');
+const pauseButton = document.querySelector('#pause');
+const stateLabel = document.querySelector('#state-label');
+const pulse = document.querySelector('.pulse');
+const badge = document.querySelector('#agent-badge');
+
+const format = seconds => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+function showPaused(paused) {
+  pauseButton.replaceChildren(paused ? '▶ ' : 'Ⅱ ', Object.assign(document.createElement('small'), { textContent: paused ? 'Resume' : 'Pause' }));
+  pauseButton.title = paused ? 'Resume recording' : 'Pause recording';
+  stateLabel.textContent = paused ? 'PAUSED' : 'RECORDING';
+  pulse.style.animationPlayState = paused ? 'paused' : 'running';
+}
+
+pauseButton.onclick = () => window.controls.togglePause();
+document.querySelector('#stop').onclick = () => window.controls.stop();
+document.querySelector('#studio').onclick = () => window.controls.showStudio();
+window.controls.on('control:agent', value => { badge.hidden = !value; });
+window.controls.on('control:tick', seconds => { clock.textContent = format(seconds); });
+window.controls.on('control:paused', showPaused);
+window.controls.getState().then(state => {
+  badge.hidden = !state.byAgent;
+  clock.textContent = format(state.seconds);
+  showPaused(state.paused);
+});
