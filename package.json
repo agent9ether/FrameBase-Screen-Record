@@ -5,7 +5,8 @@
   "description": "A desktop screen recorder with a built-in editing space",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "test": "node --test \"test/*.test.js\""
   },
   "devDependencies": {
     "electron": "^38.0.0"
