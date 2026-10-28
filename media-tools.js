@@ -28,6 +28,8 @@ function srtTime(seconds) {
 
 function toSrt(captions) {
   return captions.map((cue, index) => {
+    // drop control characters (keeping tab and newline) so a caption cannot break the SRT structure
+    // eslint-disable-next-line no-control-regex
     const textValue = String(cue.text).replace(/[\u0000-\u0008\u000b-\u001f]/g, '').trim();
     return `${index + 1}\n${srtTime(cue.start)} --> ${srtTime(cue.end)}\n${textValue}\n`;
   }).join('\n');

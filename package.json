@@ -7,10 +7,14 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
-    "test:e2e": "electron test/e2e/run.js"
+    "test:e2e": "electron test/e2e/run.js",
+    "lint": "eslint ."
   },
   "devDependencies": {
-    "electron": "^38.0.0"
+    "@eslint/js": "^9.39.5",
+    "electron": "^38.0.0",
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0"
   },
   "allowScripts": {
     "electron@38.8.6": true
