@@ -2,7 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { makeAgent, connectClient, rawRequest, resultText, resultJson } = require('./helpers');
+const { createAgentServer } = require('../agent-server');
+const { fakeSafeStorage, fakeController, makeAgent, connectClient, rawRequest, resultText, resultJson } = require('./helpers');
 
 const listToolsBody = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
 
@@ -181,6 +182,89 @@ test('convert_to_mp4 refuses files outside the recordings folder', async () => {
       const result = await client.callTool({ name: 'convert_to_mp4', arguments: { file } });
       assert.equal(result.isError, true, file);
     }
+    await client.close();
+  } finally { await cleanup(); }
+});
+
+test('agents cannot use the microphone until the user allows it', async () => {
+  const { agent, controller, cleanup } = await makeAgent();
+  try {
+    const { url } = await agent.setEnabled(true);
+    const client = await connectClient(url, await agent.revealToken());
+    const refused = await client.callTool({ name: 'start_recording', arguments: { window_title: 'Browser', microphone: true } });
+    assert.equal(refused.isError, true);
+    assert.match(resultText(refused), /Microphone recording by agents is off/);
+    assert.equal(controller.calls.filter(c => c[0] === 'start').length, 0);
+    await agent.setAllowMicrophone(true);
+    const allowed = await client.callTool({ name: 'start_recording', arguments: { window_title: 'Browser', microphone: true } });
+    assert.equal(allowed.isError, undefined);
+    assert.equal(controller.calls.find(c => c[0] === 'start')[1].microphone, true);
+    await client.close();
+  } finally { await cleanup(); }
+});
+
+test('refused requests are audit-logged without the token they carried', async () => {
+  const { agent, dir, cleanup } = await makeAgent();
+  try {
+    const { url } = await agent.setEnabled(true);
+    const port = new URL(url).port;
+    const token = await agent.revealToken();
+    await rawRequest(port, { headers: { host: `127.0.0.1:${port}`, authorization: 'Bearer guess-123' } });
+    await rawRequest(port, { headers: { host: `evil.test:${port}`, authorization: `Bearer ${token}` } });
+    const log = fs.readFileSync(path.join(dir, 'agent-audit.log'), 'utf8');
+    assert.match(log, /Missing or wrong token/);
+    assert.match(log, /Bad host/);
+    assert.ok(!log.includes('guess-123') && !log.includes(token));
+  } finally { await cleanup(); }
+});
+
+test('the port is remembered so the agent command survives a restart', async () => {
+  const { agent, dir, recordingsDir, controller, cleanup } = await makeAgent();
+  try {
+    const first = new URL((await agent.setEnabled(true)).url).port;
+    await agent.stop();
+    const again = createAgentServer({ safeStorage: fakeSafeStorage, userDataPath: dir, recordingsDir, controller });
+    await again.init();
+    assert.equal(new URL((await again.info()).url).port, first);
+    await again.stop();
+    assert.deepEqual(fs.readdirSync(dir).filter(name => name.endsWith('.tmp')), [], 'no temporary settings files left behind');
+  } finally { await cleanup(); }
+});
+
+test('refuses to store the token with a fixed-key fallback (Linux without a keyring)', async () => {
+  const weak = { ...fakeSafeStorage, getSelectedStorageBackend: () => 'basic_text' };
+  const { agent, cleanup } = await makeAgent({ safeStorage: weak });
+  try {
+    await assert.rejects(agent.setEnabled(true), /keyring/);
+    assert.equal((await agent.info()).enabled, false);
+  } finally { await cleanup(); }
+});
+
+test('open_in_editor only opens videos inside the FrameBase folder', async () => {
+  const opened = [];
+  const { agent, recordingsDir, cleanup } = await makeAgent({ controller: fakeController({ openInEditor: async file => { opened.push(file); return { opened: true }; } }) });
+  try {
+    fs.mkdirSync(recordingsDir, { recursive: true });
+    fs.writeFileSync(path.join(recordingsDir, 'clip.webm'), 'x');
+    const { url } = await agent.setEnabled(true);
+    const client = await connectClient(url, await agent.revealToken());
+    assert.equal((await client.callTool({ name: 'open_in_editor', arguments: { file: '../agent-control.json' } })).isError, true);
+    assert.equal((await client.callTool({ name: 'open_in_editor', arguments: { file: 'clip.webm' } })).isError, undefined);
+    assert.equal(path.basename(opened[0]), 'clip.webm');
+    await client.close();
+  } finally { await cleanup(); }
+});
+
+test('the product_review prompt and server instructions are offered to clients', async () => {
+  const { agent, cleanup } = await makeAgent();
+  try {
+    const { url } = await agent.setEnabled(true);
+    const client = await connectClient(url, await agent.revealToken());
+    assert.match(client.getInstructions(), /product-review workflow/);
+    const { prompts } = await client.listPrompts();
+    assert.ok(prompts.some(p => p.name === 'product_review'));
+    const prompt = await client.getPrompt({ name: 'product_review', arguments: { app: 'Notes' } });
+    assert.match(prompt.messages[0].content.text, /Notes/);
     await client.close();
   } finally { await cleanup(); }
 });
