@@ -1,0 +1,11 @@
+.agent-card{max-width:760px;margin-top:18px;padding:6px 18px;border:1px solid #2c3030;border-radius:14px;background:#14171a}
+.agent-row{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid #23272a;cursor:pointer}
+.agent-row:last-child{border-bottom:0}
+.agent-row input{margin-top:4px;accent-color:#d6f279;width:17px;height:17px}
+.agent-row strong{display:block;font-size:14px;color:#f1f2ed}
+.agent-row small{display:block;margin-top:3px;font-size:12px;color:#8f9690}
+.agent-field{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #23272a}
+.agent-field>span{flex:0 0 130px;font-size:12px;color:#8f9690}
+.agent-field code,.agent-note code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 9px;border-radius:7px;background:#0d0f10;color:#d6f279;font:12px Consolas,monospace}
+.agent-note{margin:12px 0 8px;font-size:12px;line-height:1.55;color:#8f9690}
+.agent-note code{display:inline-block;max-width:100%;vertical-align:bottom}

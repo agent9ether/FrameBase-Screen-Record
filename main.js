@@ -1,4 +1,5 @@
-const { app, BrowserWindow, desktopCapturer, dialog, ipcMain, screen, session } = require('electron');
+const { app, BrowserWindow, desktopCapturer, dialog, ipcMain, safeStorage, screen, session } = require('electron');
+const { createAgentServer } = require('./agent-server');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const os = require('node:os');
@@ -10,12 +11,75 @@ let studioWindow = null;
 let controlWindow = null;
 let isRecording = false;
 let captureSelection = null;
+let recordingSeconds = 0;
+let recordingPaused = false;
+let agentSession = false;
+let agentStopTimer = null;
+let lastSavedRecording = null;
+let agent = null;
+const agentWaiters = new Map();
+
+function waitForAgentResult(kind, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { agentWaiters.delete(kind); reject(new Error(`Timed out waiting for the recorder (${kind}).`)); }, timeoutMs);
+    agentWaiters.set(kind, result => { clearTimeout(timer); resolve(result); });
+  });
+}
+
+function recordingsFolder() { return path.join(app.getPath('documents'), 'FrameBase Recordings'); }
+
+// What the optional MCP server is allowed to do. It reuses the same renderer recording flow a person uses.
+const agentController = {
+  async listSources() {
+    const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 } });
+    return sources
+      .filter(({ name }) => name !== 'FrameBase Recording Controls')
+      .map(({ id, name }) => ({ id, name, type: id.startsWith('window:') ? 'window' : 'screen' }));
+  },
+  async start({ sourceId, systemAudio, microphone, maxSeconds }) {
+    if (isRecording) throw new Error('A recording is already running. Stop it first.');
+    if (!studioWindow || studioWindow.isDestroyed()) createWindow();
+    agentSession = true;
+    const started = waitForAgentResult('start', 20000);
+    // run with a simulated user gesture: Chromium only allows screen capture to start from one
+    studioWindow.webContents.executeJavaScript(`window.__agentStart(${JSON.stringify({ sourceId, systemAudio: Boolean(systemAudio), microphone: Boolean(microphone) })})`, true).catch(() => {});
+    let result;
+    try { result = await started; } catch (error) { agentSession = false; throw error; }
+    if (!result.ok) { agentSession = false; throw new Error(result.error || 'The recording did not start.'); }
+    clearTimeout(agentStopTimer);
+    agentStopTimer = setTimeout(() => { agentController.stop().catch(() => {}); }, maxSeconds * 1000);
+    return result;
+  },
+  async setPaused(wanted) {
+    if (!isRecording) throw new Error('Nothing is recording.');
+    if (recordingPaused !== wanted && studioWindow && !studioWindow.isDestroyed()) studioWindow.webContents.send('recording:toggle-pause');
+    return { paused: wanted };
+  },
+  async stop() {
+    if (!isRecording) throw new Error('Nothing is recording.');
+    clearTimeout(agentStopTimer);
+    if (!agentSession) throw new Error('This recording was started by the user, not an agent, so an agent cannot stop it. The user can stop it from the floating controls.');
+    const stopped = waitForAgentResult('stopped', 120000);
+    studioWindow.webContents.send('recording:stop');
+    const result = await stopped;
+    agentSession = false;
+    if (!result.ok) throw new Error(result.error || 'The recording could not be saved.');
+    lastSavedRecording = { file: result.file, seconds: result.seconds, bytes: result.bytes };
+    return lastSavedRecording;
+  },
+  async stopIfAgent() {
+    if (isRecording && agentSession) await agentController.stop().catch(() => {});
+  },
+  status() {
+    return { recording: isRecording, paused: recordingPaused, seconds: recordingSeconds, started_by_agent: isRecording && agentSession, last_saved: lastSavedRecording };
+  }
+};
 
 function createWindow() {
   studioWindow = new BrowserWindow({
     width: 1440, height: 920, minWidth: 1100, minHeight: 720,
     title: 'FrameBase Studio', backgroundColor: '#0b0c0e',
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false }
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, autoplayPolicy: 'no-user-gesture-required' }
   });
   studioWindow.loadFile('index.html');
   studioWindow.on('close', event => {
@@ -106,17 +170,50 @@ app.whenReady().then(() => {
   });
   ipcMain.on('recording:started', () => {
     isRecording = true;
+    recordingSeconds = 0;
+    recordingPaused = false;
     createControlWindow();
+    if (agentSession && controlWindow) {
+      controlWindow.webContents.once('did-finish-load', () => {
+        if (controlWindow && !controlWindow.isDestroyed()) controlWindow.webContents.send('control:agent', true);
+      });
+    }
     if (studioWindow && !studioWindow.isDestroyed()) studioWindow.hide();
   });
   ipcMain.on('recording:paused', (_event, paused) => {
+    recordingPaused = Boolean(paused);
     if (controlWindow && !controlWindow.isDestroyed()) controlWindow.webContents.send('control:paused', paused);
   });
   ipcMain.on('recording:tick', (_event, seconds) => {
+    recordingSeconds = seconds;
     if (controlWindow && !controlWindow.isDestroyed()) controlWindow.webContents.send('control:tick', seconds);
   });
+  ipcMain.on('agent:result', (_event, result) => {
+    const waiter = result && agentWaiters.get(result.kind);
+    if (waiter) { agentWaiters.delete(result.kind); waiter(result); return; }
+    // the user stopped an agent-started recording from the floating controls: still remember the saved file
+    if (result && result.kind === 'stopped' && result.ok) {
+      agentSession = false;
+      lastSavedRecording = { file: result.file, seconds: result.seconds, bytes: result.bytes };
+    }
+  });
+  ipcMain.handle('agent:save-recording', async (_event, bytes, seconds) => {
+    const folder = recordingsFolder();
+    await fs.mkdir(folder, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
+    const file = path.join(folder, `FrameBase-${stamp}.webm`);
+    await fs.writeFile(file, Buffer.from(bytes));
+    return { ok: true, file, seconds: Math.round(seconds), bytes: bytes.byteLength };
+  });
+  ipcMain.handle('agent:info', () => agent.info());
+  ipcMain.handle('agent:set-enabled', (_event, enabled) => agent.setEnabled(Boolean(enabled)));
+  ipcMain.handle('agent:set-allow-screens', (_event, value) => agent.setAllowScreens(value));
+  ipcMain.handle('agent:rotate-token', async () => { await agent.rotateToken(); return agent.info(); });
+  ipcMain.handle('agent:reveal-token', () => agent.revealToken());
   ipcMain.on('recording:stopped', () => {
     isRecording = false;
+    recordingPaused = false;
+    clearTimeout(agentStopTimer);
     if (controlWindow && !controlWindow.isDestroyed()) controlWindow.close();
     showStudio();
   });
@@ -127,7 +224,10 @@ app.whenReady().then(() => {
     if (studioWindow && !studioWindow.isDestroyed()) studioWindow.webContents.send('recording:stop');
   });
   ipcMain.on('control:show-studio', () => showStudio());
+  agent = createAgentServer({ safeStorage, userDataPath: app.getPath('userData'), recordingsDir: recordingsFolder(), controller: agentController });
+  agent.init().catch(error => console.error('Agent control did not start:', error.message));
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('before-quit', () => { if (agent) agent.stop(); });
