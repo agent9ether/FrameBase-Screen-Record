@@ -138,9 +138,12 @@ async function run() {
   check('generate_voiceover (local speech)', voice.data && voice.data.seconds > 1, voice.error || '');
   const voiced = await call('add_audio', { video: 'e2e-trim.mp4', audio: 'e2e-voice.wav', output_name: 'e2e-voiced' });
   check('add_audio holds the last frame for long narration', voiced.data && voiced.data.seconds > 2, voiced.error || JSON.stringify(voiced.data));
+  // slim FFmpeg builds (Homebrew's) have no libass: then captions must be refused clearly, not half-work
+  const canCaption = (await call('workspace_info')).data.ffmpeg.captions;
   const captioned = await call('add_captions', { video: 'e2e-voiced.mp4', captions: [{ start: 0, end: 2, text: 'FrameBase test' }], output_name: 'e2e-captioned' });
-  check('add_captions', !captioned.error, captioned.error || '');
-  const joined = await call('join_videos', { files: ['e2e-trim.mp4', 'e2e-captioned.mp4'], output_name: 'e2e-final' });
+  if (canCaption) check('add_captions', !captioned.error, captioned.error || '');
+  else check('add_captions refuses clearly without libass', /built without libass/.test(captioned.error || ''), captioned.error || 'it did not refuse');
+  const joined = await call('join_videos', { files: ['e2e-trim.mp4', canCaption ? 'e2e-captioned.mp4' : 'e2e-voiced.mp4'], output_name: 'e2e-final' });
   check('join_videos', !joined.error, joined.error || '');
   const escape = await call('trim_video', { file: path.join(root, 'userData', 'agent-control.json') });
   check('tools refuse files outside the folder', Boolean(escape.error));
