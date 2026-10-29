@@ -4,11 +4,12 @@ const os = require('node:os');
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { createMediaTools, toSrt } = require('../media-tools');
+const { createMediaTools, toSrt, HAS_SUBTITLES } = require('../media-tools');
 const { makeAgent, connectClient, resultJson } = require('./helpers');
 
 const hasFfmpeg = (() => { try { execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' }); return true; } catch { return false; } })();
 const needs = hasFfmpeg ? {} : { skip: 'FFmpeg is not installed' };
+const hasLibass = hasFfmpeg && HAS_SUBTITLES.test(execFileSync('ffmpeg', ['-hide_banner', '-filters']).toString());
 
 function workspace() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'framebase-media-'));
@@ -53,7 +54,7 @@ test('outputs get fresh names and never overwrite', async () => {
     const a = await media.reserveOutput('review', 'x', 'mp4');
     const b = await media.reserveOutput('../../evil\\name<>', 'x', 'mp4');
     assert.equal(path.basename(a), 'review-2.mp4');
-    assert.equal(path.dirname(b), fs.realpathSync(workspaceDir));
+    assert.equal(path.dirname(b), fs.realpathSync.native(workspaceDir));
     assert.equal(fs.readFileSync(path.join(workspaceDir, 'review.mp4'), 'utf8'), 'keep me');
   } finally { cleanup(); }
 });
@@ -63,7 +64,7 @@ test('missing FFmpeg gives a clear message instead of a crash', async () => {
   try {
     fs.writeFileSync(path.join(workspaceDir, 'a.webm'), 'x');
     const media = createMediaTools({ workspaceDir, ffmpeg: 'definitely-not-ffmpeg', ffprobe: 'definitely-not-ffprobe' });
-    assert.deepEqual(await media.ffmpegInfo(), { available: false, version: null });
+    assert.deepEqual(await media.ffmpegInfo(), { available: false, version: null, captions: false });
     await assert.rejects(media.probe('a.webm'), /needs FFmpeg installed/);
   } finally { cleanup(); }
 });
@@ -90,9 +91,6 @@ test('probe, trim, join, add audio, captions, frame and convert', needs, async (
     assert.ok(Math.abs(voiced.held_last_frame_seconds - 2) < 0.2);
     assert.ok(Math.abs((await media.probe(voiced.name)).seconds - 5) < 0.3, 'video extended to cover the narration');
 
-    const captioned = await media.burnCaptions({ video: 'silent.webm', captions: [{ start: 0, end: 1, text: 'Hello, "world" \\ 100%' }] });
-    assert.ok((await media.probe(captioned.name)).video);
-
     const frame = await media.extractFrame({ input: 'clip.webm', at: 99 });
     assert.ok(frame.at < 3);
     assert.ok(fs.statSync(frame.file).size > 1000);
@@ -101,9 +99,37 @@ test('probe, trim, join, add audio, captions, frame and convert', needs, async (
     assert.equal(path.extname(converted.name), '.mp4');
 
     const listed = await media.listFiles({ kind: 'video' });
-    assert.ok(listed.length >= 6 && listed.every(row => row.kind === 'video'));
+    assert.ok(listed.length >= 5 && listed.every(row => row.kind === 'video'));
+  } finally { cleanup(); }
+});
+
+test('burned-in captions, or a clear error when FFmpeg has no libass', needs, async () => {
+  const { workspaceDir, media, cleanup } = workspace();
+  try {
+    makeClips(workspaceDir);
+    assert.equal((await media.ffmpegInfo()).captions, hasLibass);
+    const burning = media.burnCaptions({ video: 'silent.webm', captions: [{ start: 0, end: 1, text: 'Hello, "world" \\ 100%' }] });
+    if (!hasLibass) { await assert.rejects(burning, /built without libass/); return; }
+    const captioned = await burning;
+    assert.ok((await media.probe(captioned.name)).video);
     assert.ok(!fs.readdirSync(workspaceDir).some(name => name.startsWith('.framebase-')), 'temporary caption files are removed');
   } finally { cleanup(); }
+});
+
+test('a folder reached through an alias (symlink, junction, 8.3 name) still accepts its own files', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'framebase-alias-'));
+  try {
+    const real = path.join(dir, 'real');
+    fs.mkdirSync(path.join(real, 'FrameBase Recordings'), { recursive: true });
+    fs.writeFileSync(path.join(real, 'FrameBase Recordings', 'clip.webm'), 'x');
+    fs.writeFileSync(path.join(dir, 'outside.webm'), 'x');
+    const alias = path.join(dir, 'alias');
+    fs.symlinkSync(real, alias, 'junction');
+    const media = createMediaTools({ workspaceDir: path.join(alias, 'FrameBase Recordings') });
+    assert.equal(path.basename(await media.resolveInput(path.join(alias, 'FrameBase Recordings', 'clip.webm'))), 'clip.webm');
+    assert.equal(path.basename(await media.resolveInput(path.join(real, 'FrameBase Recordings', 'clip.webm'))), 'clip.webm');
+    await assert.rejects(media.resolveInput(path.join(alias, 'FrameBase Recordings', '..', '..', 'outside.webm')), /outside/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('voice-over uses the local speech engine', process.platform === 'win32' ? {} : { skip: 'checked on Windows only' }, async () => {

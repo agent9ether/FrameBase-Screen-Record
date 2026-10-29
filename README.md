@@ -50,7 +50,8 @@ instructions. For Claude Code there is a skill with more detail in
 | `convert_video` / `convert_to_mp4` | Convert to MP4 or WebM |
 | `open_in_editor` | Open a result in the FrameBase editor for you to review |
 
-Editing tools need FFmpeg. Voice-overs use Windows speech, macOS `say`, or `espeak-ng` on Linux; an agent can also
+Editing tools need FFmpeg. Burned-in captions also need an FFmpeg build with libass (the `subtitles` filter); slim
+builds leave it out, and `workspace_info` reports `captions: false` in that case. Voice-overs use Windows speech, macOS `say`, or `espeak-ng` on Linux; an agent can also
 copy in narration it made another way.
 
 ### How it stays safe

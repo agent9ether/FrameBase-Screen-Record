@@ -12,6 +12,8 @@ const ENCODE_TIMEOUT = 60 * 60 * 1000;
 const MEDIA_EXTENSIONS = { video: ['webm', 'mp4', 'mov', 'mkv'], audio: ['wav', 'mp3', 'm4a', 'aac', 'ogg', 'opus', 'flac'], image: ['png', 'jpg', 'jpeg'], captions: ['srt'] };
 // H.264 needs even dimensions; window captures are often odd-sized
 const EVEN = 'scale=trunc(iw/2)*2:trunc(ih/2)*2';
+// a line of `ffmpeg -filters` output naming the libass subtitles filter
+const HAS_SUBTITLES = /^\s*\S+\s+subtitles\s/m;
 const MP4_OUT = ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart'];
 const WEBM_OUT = ['-c:v', 'libvpx-vp9', '-crf', '32', '-b:v', '0', '-row-mt', '1', '-c:a', 'libopus', '-b:a', '160k'];
 
@@ -53,7 +55,9 @@ function createMediaTools({ workspaceDir, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe'
     if (typeof name !== 'string' || !name.trim()) throw new Error('A file name is required.');
     const root = await ensureWorkspace();
     const candidate = path.resolve(root, name);
-    if (!isInside(root, candidate)) throw new Error(`"${name}" is outside the FrameBase folder. Copy it into ${workspaceDir} first.`);
+    // the folder may be reached through an alias (a symlinked Documents, /var -> /private/var, Windows 8.3 names);
+    // accept either spelling here, the realpath check below decides
+    if (!isInside(root, candidate) && !isInside(path.resolve(workspaceDir), candidate)) throw new Error(`"${name}" is outside the FrameBase folder. Copy it into ${workspaceDir} first.`);
     let real;
     try { real = await fs.realpath(candidate); } catch { throw new Error(`There is no file called "${name}" in the FrameBase folder.`); }
     if (!isInside(root, real)) throw new Error(`"${name}" points outside the FrameBase folder.`);
@@ -76,8 +80,13 @@ function createMediaTools({ workspaceDir, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe'
   async function ffmpegInfo() {
     if (!ffmpegCheck) {
       ffmpegCheck = run(ffmpeg, ['-hide_banner', '-version'], { windowsHide: true })
-        .then(({ stdout }) => ({ available: true, version: (/ffmpeg version n?(\d[\w.]*?)(?:[-_\s]|$)/.exec(stdout) || [])[1] || 'unknown' }))
-        .catch(() => ({ available: false, version: null }));
+        .then(async ({ stdout }) => {
+          const version = (/ffmpeg version n?(\d[\w.]*?)(?:[-_\s]|$)/.exec(stdout) || [])[1] || 'unknown';
+          // burned-in captions need the libass "subtitles" filter, which slim builds (e.g. Homebrew's) leave out
+          const filters = await run(ffmpeg, ['-hide_banner', '-filters'], { windowsHide: true, maxBuffer: 4 * 1024 * 1024 }).then(result => result.stdout, () => '');
+          return { available: true, version, captions: HAS_SUBTITLES.test(filters) };
+        })
+        .catch(() => ({ available: false, version: null, captions: false }));
     }
     const info = await ffmpegCheck;
     if (!info.available) ffmpegCheck = null; // let the user install it without restarting
@@ -194,6 +203,8 @@ function createMediaTools({ workspaceDir, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe'
   }
 
   async function burnCaptions({ video, captions, srt_file, font_size = 22, output_name }) {
+    await needFfmpeg();
+    if (!(await ffmpegInfo()).captions) throw new Error('This FFmpeg build cannot draw captions: it was built without libass (the "subtitles" filter). Install a full FFmpeg build that includes libass, then restart FrameBase.');
     const clip = await requireDuration(video);
     if (!clip.video) throw new Error(`"${video}" has no video.`);
     let srtText;
@@ -297,4 +308,4 @@ function createMediaTools({ workspaceDir, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe'
   return { workspaceDir, resolveInput, reserveOutput, ffmpegInfo, probe, trim, concat, addAudio, burnCaptions, extractFrame, convert, listVoices, speak, listFiles, kindOf };
 }
 
-module.exports = { createMediaTools, toSrt, srtTime, MEDIA_EXTENSIONS, MP4_OUT, WEBM_OUT, EVEN };
+module.exports = { createMediaTools, toSrt, srtTime, MEDIA_EXTENSIONS, MP4_OUT, WEBM_OUT, EVEN, HAS_SUBTITLES };
