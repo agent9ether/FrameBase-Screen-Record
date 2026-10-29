@@ -1,54 +1,98 @@
 # FrameBase Studio
 
-A desktop screen recorder with a built-in editing space. The first version includes screen and window capture, a local recording workflow, video import and preview, a basic timeline, and file export.
+A desktop screen recorder and editor that **AI agents can drive**. Ask Claude Code, Codex or any MCP client to
+record an app window, look at what it captured, write and voice a script, cut the clips together and add captions,
+and get a finished product review, feature demo or tutorial back. People can use every part of it without an agent
+too.
+
+Everything runs on your computer: recordings, editing and voice-overs never leave it, and the app makes no network
+requests of its own.
 
 ## Getting started
 
-1. Install [Node.js](https://nodejs.org/).
-2. In this folder, run `npm install`.
-3. Run `npm start`.
+1. Install [Node.js](https://nodejs.org/) 20 or newer.
+2. In this folder, run `npm install`, then `npm start`.
+3. For editing tools (trim, join, voice-over mixing, captions, MP4 export), install FFmpeg and make sure it is on
+   PATH: `winget install Gyan.FFmpeg` on Windows, `brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux.
+   Recording and WebM export work without it.
 
-On Windows, choose a screen or app window in the recording dialog and allow the system's capture permission prompt. Recordings remain on your device.
+## Let an agent make the video
 
-## Current scope
-
-- Electron desktop shell
-- Screen or app-window recording with an explicit source picker
-- System audio loopback on Windows, with optional microphone audio mixed in
-- Always-on-top floating controls while recording, so the full studio can stay hidden
-- Fixed WebM duration metadata so recordings can seek correctly in the editor
-- Microphone option
-- Import and preview local video files
-- Starter editing workspace with preview, inspector, and timeline layout
-- Export of complete source clips as WebM, plus MP4 conversion with FFmpeg installed
-- Save and reopen portable `.framebase` project files with their source video
-- Preview zoom, crop framing, and draggable text overlays
-
-## Agent control (optional MCP server)
-
-FrameBase can let an AI agent such as Claude Code or Codex start and stop recordings. It is **off by default**.
-
-1. Open **Agent control** in the sidebar and turn on **Allow AI agents to record**.
+1. Open **Agent control** in the sidebar and turn on **Allow AI agents to record and edit**.
 2. Press **Copy** next to *Add to Claude Code* and run that command in a terminal. It looks like
    `claude mcp add --transport http framebase http://127.0.0.1:47615/mcp --header "Authorization: Bearer <token>"`.
-3. Ask the agent to record an app window.
+   For other MCP clients, copy the JSON config instead.
+3. Ask the agent, for example: *"Use FrameBase to make a two-minute narrated review of the Notes app."*
+
+Clients that support MCP prompts also get a `product_review` prompt, and the server sends its own workflow
+instructions. For Claude Code there is a skill with more detail in
+[agent-skills/framebase-video-production](agent-skills/framebase-video-production/SKILL.md): copy that folder into
+`~/.claude/skills/` (or your project's `.claude/skills/`).
+
+### Tools
 
 | Tool | What it does |
 |---|---|
 | `list_sources` | App windows that can be recorded (screens too, if you allow them) |
-| `start_recording` | Start recording a window by `source_id` or `window_title`; optional system audio, microphone and `max_seconds` (default 600) |
-| `pause_recording` / `resume_recording` | Pause or resume |
-| `stop_recording` | Stop and save to `Documents\FrameBase Recordings`; returns the file path |
-| `recording_status` | Running or not, seconds so far, last saved file |
-| `list_recordings` | Recent files in the recordings folder |
-| `convert_to_mp4` | Convert a saved recording to MP4 (needs FFmpeg on PATH) |
+| `start_recording` | Record a window by `source_id` or `window_title`; optional `system_audio` (Windows), `microphone` (if allowed) and `max_seconds` (default 600, paused time does not count) |
+| `pause_recording` / `resume_recording` | Pause or resume a recording the agent started |
+| `stop_recording` | Stop and save; returns the file |
+| `recording_status` | Running or not, recorded seconds, last saved file |
+| `workspace_info` | The recordings folder, whether FFmpeg is installed, what you allow |
+| `list_files` / `list_recordings` | Videos, audio, images and captions in the folder |
+| `media_info` | Length, resolution and audio of a file |
+| `extract_frame` | Saves a PNG and returns it as an image, so the agent can see what it recorded |
+| `trim_video` | Keep part of a video |
+| `join_videos` | Join clips in order, fitted to the first clip's frame |
+| `generate_voiceover` / `list_voices` | Turn a script into a WAV with the computer's own speech voices, offline |
+| `add_audio` | Put a voice-over or music on a video (mix with or replace its sound); holds the last frame if the audio is longer |
+| `add_captions` | Burn in timed text, from a list of lines or an `.srt` file |
+| `convert_video` / `convert_to_mp4` | Convert to MP4 or WebM |
+| `open_in_editor` | Open a result in the FrameBase editor for you to review |
 
-How it stays safe:
+Editing tools need FFmpeg. Voice-overs use Windows speech, macOS `say`, or `espeak-ng` on Linux; an agent can also
+copy in narration it made another way.
 
-* Listens on `127.0.0.1` only, needs a bearer token (stored encrypted with the operating system), and refuses browser requests.
-* Agents can only record **app windows** unless you tick *Also allow whole screens*.
-* A floating **AGENT** control bar stays on screen while an agent records, and you can stop at any time. Recordings stop by themselves after `max_seconds`.
-* An agent can only stop recordings it started, and can only convert files inside the recordings folder.
-* Every call is written to `agent-audit.log` in the app's data folder. Turning the switch off stops the server.
+### How it stays safe
 
-Zoom, crop framing, and draggable text overlays are available in the preview and are saved with the project. Export preserves the full source clip; MP4 and format conversion require FFmpeg on PATH.
+* Off by default. Listens on `127.0.0.1` only, needs a bearer token stored encrypted by the operating system
+  (`safeStorage`; on Linux a system keyring is required), and refuses any request with an `Origin` header or a
+  `Host` other than `127.0.0.1:<port>` / `localhost:<port>`.
+* Agents can record **app windows** only, unless you tick *Also allow whole screens*. They cannot record the
+  microphone unless you tick *Allow agents to record the microphone*.
+* A floating **AGENT** bar stays on screen while an agent records and you can stop it at any time. An agent can only
+  pause or stop recordings it started, and recordings stop by themselves after `max_seconds`.
+* File tools only read files inside the recordings folder (symlinks are checked) and always write new files; they
+  never overwrite or delete anything.
+* Every call, and every refused request, is written to `agent-audit.log` in the app's data folder (rotated at 5 MB).
+  Turning the switch off stops the server and any agent recording.
+* The address stays the same across restarts unless the port is taken. Copied commands contain the token, and your
+  agent's config will store it: press **New token** if it leaks.
+
+## Recording and editing yourself
+
+* **New recording** (Ctrl R, ⌘ R on macOS): pick a screen or app window, optionally system audio (Windows) and your
+  microphone. A floating bar lets you pause, stop or bring the studio back; it is kept out of the recording.
+* Recordings are written to `Documents/FrameBase Recordings` **while you record**. If the app or computer stops
+  mid-recording, the next start keeps what was written as `…-recovered.webm`. Quitting while recording stops and
+  saves first. Closing the recorded window stops the recording.
+* **Home** and **Media library** list the videos in that folder, including what agents make.
+* The **editor** plays a clip and has zoom, crop-to-fill and draggable text overlays in the Properties panel.
+* **Export**: MP4 (needs FFmpeg) or WebM. Without edits the clip is copied or converted directly; with zoom, crop or
+  text, the clip plays once in real time to render them in.
+* **Save project** writes a small `.framebase` file that points to the video and stores your edits. Keep the two
+  together. Older project files that embedded the video still open (the video is written out to the recordings
+  folder once).
+
+## Development
+
+```bash
+npm start          # run the app
+npm test           # unit tests: agent server, media tools, WebM duration (FFmpeg tests skip without FFmpeg)
+npm run test:e2e   # drives the real app end to end; opens windows on your screen for about a minute
+npm run lint
+npm run pack       # unpacked build in release/
+npm run dist       # installer (NSIS on Windows, dmg on macOS, AppImage on Linux)
+```
+
+Builds are not code-signed, so Windows SmartScreen and macOS Gatekeeper will warn. There is no auto-update.
