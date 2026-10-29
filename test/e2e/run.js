@@ -82,6 +82,10 @@ async function run() {
   // the target page must not get the microphone
   const micDenied = await target.webContents.executeJavaScript('navigator.mediaDevices.getUserMedia({audio:true}).then(() => false, error => error.name)');
   check('other windows are refused the microphone', micDenied && micDenied !== false, String(micDenied));
+  const screenDenied = await target.webContents.executeJavaScript('navigator.mediaDevices.getDisplayMedia({ video: true }).then(s => { s.getTracks().forEach(t => t.stop()); return "granted"; }, error => error.name)', true);
+  check('other windows are refused screen capture', screenDenied !== 'granted', screenDenied);
+  const studioUnpicked = await studio().webContents.executeJavaScript('navigator.mediaDevices.getDisplayMedia({ video: true }).then(s => { s.getTracks().forEach(t => t.stop()); return "granted"; }, error => error.name)', true);
+  check('the studio cannot capture without a picked source', studioUnpicked !== 'granted', studioUnpicked);
 
   const sources = await call('list_sources');
   check('list_sources finds the target window', sources.data.sources.some(s => s.name === 'FrameBase E2E Target'));

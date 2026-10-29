@@ -483,8 +483,10 @@ function lockDownSessions() {
   const fromStudioContents = contents => alive(studioWindow) && contents === studioWindow.webContents;
   session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
     if (!fromStudioContents(contents)) return callback(false);
-    // the microphone, and only when asked for by the studio; screens go through the display-media handler below
+    // the microphone, and only when asked for by the studio
     if (permission === 'media') return callback((details.mediaTypes || []).every(type => type === 'audio'));
+    // screen capture only right after a source was picked in the studio (or by an agent); the display-media handler below picks it
+    if (permission === 'display-capture') return callback(captureSelection !== null);
     callback(permission === 'clipboard-sanitized-write');
   });
   session.defaultSession.setPermissionCheckHandler((contents, permission) => Boolean(contents) && fromStudioContents(contents) && ['media', 'clipboard-sanitized-write'].includes(permission));
