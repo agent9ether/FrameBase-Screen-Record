@@ -55,12 +55,16 @@ function createMediaTools({ workspaceDir, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe'
     if (typeof name !== 'string' || !name.trim()) throw new Error('A file name is required.');
     const root = await ensureWorkspace();
     const candidate = path.resolve(root, name);
-    // the folder may be reached through an alias (a symlinked Documents, /var -> /private/var, Windows 8.3 names);
-    // accept either spelling here, the realpath check below decides
-    if (!isInside(root, candidate) && !isInside(path.resolve(workspaceDir), candidate)) throw new Error(`"${name}" is outside the FrameBase folder. Copy it into ${workspaceDir} first.`);
-    let real;
-    try { real = await fs.realpath(candidate); } catch { throw new Error(`There is no file called "${name}" in the FrameBase folder.`); }
-    if (!isInside(root, real)) throw new Error(`"${name}" points outside the FrameBase folder.`);
+    // The real location decides, so any spelling of the folder works (a symlinked Documents, /var -> /private/var,
+    // Windows 8.3 names). For paths that do not look inside, missing and existing files get the same answer,
+    // so the error never reveals what exists elsewhere.
+    const looksInside = isInside(root, candidate) || isInside(path.resolve(workspaceDir), candidate);
+    const real = await fs.realpath(candidate).catch(() => null);
+    if (!real || !isInside(root, real)) {
+      if (looksInside && !real) throw new Error(`There is no file called "${name}" in the FrameBase folder.`);
+      if (looksInside) throw new Error(`"${name}" points outside the FrameBase folder.`);
+      throw new Error(`"${name}" is outside the FrameBase folder. Copy it into ${workspaceDir} first.`);
+    }
     if (!(await fs.stat(real)).isFile()) throw new Error(`"${name}" is not a file.`);
     if (kinds && !kinds.includes(kindOf(real))) throw new Error(`"${name}" is not a ${kinds.join(' or ')} file.`);
     return real;

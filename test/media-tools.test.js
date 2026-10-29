@@ -128,7 +128,15 @@ test('a folder reached through an alias (symlink, junction, 8.3 name) still acce
     const media = createMediaTools({ workspaceDir: path.join(alias, 'FrameBase Recordings') });
     assert.equal(path.basename(await media.resolveInput(path.join(alias, 'FrameBase Recordings', 'clip.webm'))), 'clip.webm');
     assert.equal(path.basename(await media.resolveInput(path.join(real, 'FrameBase Recordings', 'clip.webm'))), 'clip.webm');
+    // a third spelling, like a temp folder that is itself aliased
+    const other = path.join(dir, 'other');
+    fs.symlinkSync(real, other, 'junction');
+    assert.equal(path.basename(await media.resolveInput(path.join(other, 'FrameBase Recordings', 'clip.webm'))), 'clip.webm');
     await assert.rejects(media.resolveInput(path.join(alias, 'FrameBase Recordings', '..', '..', 'outside.webm')), /outside/);
+    // outside the folder, an existing and a missing file get the same answer
+    const existing = await media.resolveInput(path.join(dir, 'outside.webm')).catch(error => error.message);
+    const missing = await media.resolveInput(path.join(dir, 'missing.webm')).catch(error => error.message);
+    assert.equal(existing.replace('outside.webm', 'X'), missing.replace('missing.webm', 'X'));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
