@@ -191,7 +191,7 @@ const agentController = {
 function createWindow() {
   studioWindow = new BrowserWindow({
     width: 1440, height: 920, minWidth: 1100, minHeight: 720,
-    title: 'FrameBase Studio', backgroundColor: '#0b0c0e', show: false,
+    title: 'FrameBase Studio', backgroundColor: '#0b0c0e', show: false, icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, autoplayPolicy: 'no-user-gesture-required' }
   });
   studioWindow.loadFile(path.join(__dirname, 'index.html'));
