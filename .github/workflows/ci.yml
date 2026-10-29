@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # no install scripts: lint and unit tests do not need the Electron binary
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install FFmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Install FFmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg -y --no-progress
+      - run: npm ci --ignore-scripts
+      - name: Unit tests
+        shell: bash
+        run: |
+          # choco puts ffmpeg in its shim folder; make sure this shell sees it
+          if [ "$RUNNER_OS" = "Windows" ]; then export PATH="/c/ProgramData/chocolatey/bin:$PATH"; fi
+          ffmpeg -version | head -1
+          npm test
+
+  e2e:
+    # drives the real app: records a window, edits with FFmpeg, uses Windows speech
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: choco install ffmpeg -y --no-progress
+      - run: npm ci --ignore-scripts
+      - name: Download the Electron binary
+        run: node node_modules/electron/install.js
+      - name: End-to-end run
+        shell: bash
+        run: |
+          export PATH="/c/ProgramData/chocolatey/bin:$PATH"
+          npm run test:e2e
