@@ -23,9 +23,9 @@ you could not verify (macOS/Linux, multi-monitor, a real microphone and system a
 |---|---|
 | `main.js` | Main process: windows, permission and display-media handlers, `framebase-media://` scheme, sender-checked IPC, streaming recordings to disk, recovery, agent controller |
 | `preload.js` | Studio bridge (`window.studio`), sandboxed; every method here is attack surface |
-| `control-preload.js` | Floating bar bridge (`window.controls`): pause, stop, show studio only |
+| `control-preload.js` | Floating bar bridge (`window.controls`): record (opens the picker), pause, stop, show studio, hide bar only |
 | `renderer.js`, `index.html`, `styles.css`, `studio.css`, `player-controls.css`, `capture-picker.css`, `fonts.css` | Main UI, MediaRecorder capture, library, editor, export |
-| `mini-control.{html,js,css}` | Floating recording control, including the AGENT badge |
+| `mini-control.{html,js,css}` | Floating bar: idle Record button, recording controls, the AGENT badge |
 | `agent-server.js` | Agent-control MCP server (Streamable HTTP, stateless per request), tools and prompt |
 | `media-tools.js` | FFmpeg and OS speech helpers confined to the recordings folder; used by agents and export |
 | `webm-duration.js` | Writes the duration into MediaRecorder WebM files |

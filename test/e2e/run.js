@@ -21,6 +21,8 @@ const consoleProblems = [];
 function check(name, ok, detail = '') { results.push({ name, ok: Boolean(ok), detail }); console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ` - ${detail}` : ''}`); }
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const studio = () => BrowserWindow.getAllWindows().find(win => win.getTitle() === 'FrameBase Studio' && !win.isDestroyed());
+const controls = () => BrowserWindow.getAllWindows().find(win => win.getTitle() === 'FrameBase Recording Controls' && !win.isDestroyed());
+const inControls = code => controls().webContents.executeJavaScript(code);
 const inStudio = code => studio().webContents.executeJavaScript(code).catch(error => { throw new Error(`${error.message} in: ${code.slice(0, 120)}`); });
 const probeSeconds = file => Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file]).toString().trim());
 async function until(predicate, timeoutMs, label) {
@@ -54,6 +56,16 @@ async function run() {
   check('window.open is blocked', await inStudio('window.open("https://example.com") === null'));
   const fontsOk = await inStudio('document.fonts.ready.then(() => document.fonts.check("600 16px Manrope") && [...document.fonts].some(f => f.family.includes("Manrope") && f.status === "loaded"))');
   check('bundled fonts load from disk', fontsOk);
+
+  // --- the floating bar waits with a Record button ---
+  await until(() => controls() && !controls().webContents.isLoading(), 10000, 'floating bar');
+  await sleep(300);
+  check('floating bar shows Record while idle', await inControls('document.querySelector(".control-strip").classList.contains("idle") && getComputedStyle(document.querySelector("#record")).display !== "none" && getComputedStyle(document.querySelector("#stop")).display === "none"'));
+  check('floating bar does not take focus from the studio', !controls().isFocused());
+  await inControls('document.querySelector("#record").click(); true');
+  await until(() => inStudio('!document.querySelector("#record-modal").hidden'), 5000, 'record picker from the bar');
+  check('Record on the bar opens the source picker', true);
+  await inStudio('document.querySelector("#record-modal").hidden = true; true');
 
   // --- enable agent control ---
   const info = await inStudio('window.studio.agent.setEnabled(true)');
@@ -97,6 +109,7 @@ async function run() {
   // --- agent recording with pause ---
   const started = await call('start_recording', { window_title: 'FrameBase E2E Target', max_seconds: 60 });
   check('start_recording', !started.error, started.error || '');
+  check('floating bar switches to recording controls with the AGENT badge', await inControls('!document.querySelector(".control-strip").classList.contains("idle") && !document.querySelector("#agent-badge").hidden'));
   const again = await call('start_recording', { window_title: 'FrameBase E2E Target' });
   check('second start is refused while recording', Boolean(again.error));
   await sleep(1200);
@@ -118,6 +131,8 @@ async function run() {
   const recordedSeconds = probeSeconds(recorded);
   check('saved WebM has a duration header', recordedSeconds > 3 && recordedSeconds < 8, `${recordedSeconds}s`);
   check('no partial files left', fs.readdirSync(recordings).every(name => !name.endsWith('.part')));
+  await until(() => inControls('document.querySelector(".control-strip").classList.contains("idle")').catch(() => false), 5000, 'bar back to idle');
+  check('floating bar returns to Record after stopping', true);
 
   // --- auto-stop after max_seconds of recorded time ---
   await sleep(1500);

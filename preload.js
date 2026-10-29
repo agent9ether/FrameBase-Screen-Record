@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const invoke = (channel, ...args) => ipcRenderer.invoke(channel, ...args);
 const send = (channel, ...args) => ipcRenderer.send(channel, ...args);
-const EVENTS = ['recording:toggle-pause', 'recording:stop', 'studio:focus-editor', 'editor:open', 'studio:recovered'];
+const EVENTS = ['recording:toggle-pause', 'recording:stop', 'studio:focus-editor', 'editor:open', 'studio:recovered', 'studio:open-record'];
 
 contextBridge.exposeInMainWorld('studio', {
   platform: process.platform,

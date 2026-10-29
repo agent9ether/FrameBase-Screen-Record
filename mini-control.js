@@ -3,6 +3,7 @@ const pauseButton = document.querySelector('#pause');
 const stateLabel = document.querySelector('#state-label');
 const pulse = document.querySelector('.pulse');
 const badge = document.querySelector('#agent-badge');
+const strip = document.querySelector('.control-strip');
 
 const format = seconds => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 function showPaused(paused) {
@@ -12,9 +13,18 @@ function showPaused(paused) {
   pulse.style.animationPlayState = paused ? 'paused' : 'running';
 }
 
+// idle: a quick Record button; recording: the clock, pause and stop
+function showRecording(active) {
+  strip.classList.toggle('idle', !active);
+  if (!active) { stateLabel.textContent = 'READY'; clock.textContent = ''; badge.hidden = true; }
+}
+
+document.querySelector('#record').onclick = () => window.controls.record();
+document.querySelector('#hide').onclick = () => window.controls.hide();
 pauseButton.onclick = () => window.controls.togglePause();
 document.querySelector('#stop').onclick = () => window.controls.stop();
 document.querySelector('#studio').onclick = () => window.controls.showStudio();
+window.controls.on('control:recording', showRecording);
 window.controls.on('control:agent', value => { badge.hidden = !value; });
 window.controls.on('control:tick', seconds => { clock.textContent = format(seconds); });
 window.controls.on('control:paused', showPaused);
@@ -22,4 +32,5 @@ window.controls.getState().then(state => {
   badge.hidden = !state.byAgent;
   clock.textContent = format(state.seconds);
   showPaused(state.paused);
+  showRecording(state.recording);
 });
