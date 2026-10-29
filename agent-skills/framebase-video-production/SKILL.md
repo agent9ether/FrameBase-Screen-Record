@@ -26,7 +26,7 @@ and always write a **new** file, so nothing is overwritten.
 - Pass `max_seconds` a little above what you need; the recording stops itself there.
 - The user sees an **AGENT** badge and can stop you. If `stop_recording` says nothing is recording, the user stopped
   it: `recording_status` shows the saved file.
-- Use `system_audio: true` only when the app's own sound matters (Windows only).
+- Use `system_audio: true` only when the app's own sound matters (Windows, or macOS 14.2 and newer).
 
 ## Checking what you recorded
 

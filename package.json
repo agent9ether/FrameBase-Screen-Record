@@ -81,7 +81,8 @@
       "category": "public.app-category.video",
       "icon": "build/icon.png",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "FrameBase records your microphone when you turn on \"Record microphone\"."
+        "NSMicrophoneUsageDescription": "FrameBase records your microphone when you turn on \"Record microphone\".",
+        "NSAudioCaptureUsageDescription": "FrameBase records the sound your Mac plays when you turn on \"Record system audio\"."
       }
     },
     "linux": {

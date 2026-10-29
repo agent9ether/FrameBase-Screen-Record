@@ -34,7 +34,7 @@ instructions. For Claude Code there is a skill with more detail in
 | Tool | What it does |
 |---|---|
 | `list_sources` | App windows that can be recorded (screens too, if you allow them) |
-| `start_recording` | Record a window by `source_id` or `window_title`; optional `system_audio` (Windows), `microphone` (if allowed) and `max_seconds` (default 600, paused time does not count) |
+| `start_recording` | Record a window by `source_id` or `window_title`; optional `system_audio` (Windows, macOS 14.2+), `microphone` (if allowed) and `max_seconds` (default 600, paused time does not count) |
 | `pause_recording` / `resume_recording` | Pause or resume a recording the agent started |
 | `stop_recording` | Stop and save; returns the file |
 | `recording_status` | Running or not, recorded seconds, last saved file |
@@ -72,8 +72,14 @@ copy in narration it made another way.
 
 ## Recording and editing yourself
 
-* **New recording** (Ctrl R, ⌘ R on macOS): pick a screen or app window, optionally system audio (Windows) and your
+* **New recording** (Ctrl R, ⌘ R on macOS): pick a screen or app window, optionally system audio and your
   microphone. A floating bar lets you pause, stop or bring the studio back; it is kept out of the recording.
+* The floating bar also stays on screen while you are not recording, with a **Record** button that opens the source
+  picker. Hide it with its ✕ and bring it back from **View › Floating Record Bar**.
+* **System audio** works on Windows and on macOS 14.2 or newer. macOS asks for permission the first time (System
+  Settings › Privacy & Security › Screen & System Audio Recording). When you run from source with `npm start`, macOS
+  asks about your terminal app instead, and it may not offer system audio at all; the built app (`npm run dist`)
+  carries its own permission text. If macOS refuses, FrameBase says so instead of recording silence.
 * Recordings are written to `Documents/FrameBase Recordings` **while you record**. If the app or computer stops
   mid-recording, the next start keeps what was written as `…-recovered.webm`. Quitting while recording stops and
   saves first. Closing the recorded window stops the recording.

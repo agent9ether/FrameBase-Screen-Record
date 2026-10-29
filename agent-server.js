@@ -108,7 +108,7 @@ function createAgentServer({ safeStorage, userDataPath, recordingsDir, controlle
       {
         source_id: z.string().max(200).optional(),
         window_title: z.string().max(200).optional().describe('Case-insensitive part of the window title'),
-        system_audio: z.boolean().optional().describe('Record sound the computer plays (Windows only)'),
+        system_audio: z.boolean().optional().describe('Record sound the computer plays (Windows, or macOS 14.2 and newer)'),
         microphone: z.boolean().optional().describe('Record the microphone; only works if the user allowed it'),
         max_seconds: z.number().int().min(1).max(3600).optional().describe('Auto-stop after this much recorded time (default 600; pauses do not count)')
       },

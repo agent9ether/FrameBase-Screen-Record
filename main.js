@@ -30,6 +30,11 @@ let captureSelection = null;
 const waiters = new Map();
 const mediaGrants = new Map();
 const exportJobs = new Map();
+const uiSettings = { floatingBar: true };
+
+// Electron records system audio on Windows, and on macOS 14.2 or newer (Core Audio taps)
+const [macMajor, macMinor = 0] = process.platform === 'darwin' ? process.getSystemVersion().split('.').map(Number) : [0];
+const systemAudioSupported = process.platform === 'win32' || macMajor > 14 || (macMajor === 14 && macMinor >= 2);
 
 function recordingsFolder() { return path.join(app.getPath('documents'), 'FrameBase Recordings'); }
 const alive = win => Boolean(win && !win.isDestroyed());
@@ -119,7 +124,8 @@ async function recoverLeftovers() {
 
 function resetRecording() {
   Object.assign(recording, { active: false, paused: false, seconds: 0, byAgent: false, maxSeconds: 0, autoStopping: false, handle: null, partFile: null });
-  if (alive(controlWindow)) controlWindow.close();
+  // the floating bar stays as a quick Record button if the person wants it, otherwise it goes away with the recording
+  if (alive(controlWindow)) { if (uiSettings.floatingBar && alive(studioWindow)) sendControlState(); else controlWindow.close(); }
 }
 
 async function salvageRecording(reason) {
@@ -144,6 +150,7 @@ const agentController = {
   },
   async start({ sourceId, systemAudio, microphone, maxSeconds }) {
     if (recording.active || agentStarting) throw new Error('A recording is already running or starting. Stop it first.');
+    if (systemAudio && !systemAudioSupported) throw new Error('System audio can only be recorded on Windows and on macOS 14.2 or newer. Start again without system_audio.');
     agentStarting = true;
     try {
       if (!alive(studioWindow)) createWindow();
@@ -195,11 +202,15 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, autoplayPolicy: 'no-user-gesture-required' }
   });
   studioWindow.loadFile(path.join(__dirname, 'index.html'));
-  studioWindow.once('ready-to-show', () => { if (!recording.active) studioWindow.show(); });
+  studioWindow.once('ready-to-show', () => {
+    if (!recording.active) studioWindow.show();
+    if (uiSettings.floatingBar) createControlWindow();
+  });
   studioWindow.on('close', event => {
     // keep recording in the background; the floating bar can bring the studio back
     if (recording.active && !quitting) { event.preventDefault(); studioWindow.hide(); }
   });
+  studioWindow.on('closed', () => { if (alive(controlWindow)) controlWindow.close(); });
   studioWindow.webContents.on('render-process-gone', async (_event, details) => {
     await salvageRecording(`The studio stopped unexpectedly (${details.reason}).`);
     if (!quitting && alive(studioWindow)) { studioWindow.reload(); studioWindow.show(); }
@@ -212,18 +223,19 @@ function createWindow() {
 
 function sendControlState() {
   if (!alive(controlWindow)) return;
+  controlWindow.webContents.send('control:recording', recording.active);
   controlWindow.webContents.send('control:agent', recording.byAgent);
   controlWindow.webContents.send('control:paused', recording.paused);
   controlWindow.webContents.send('control:tick', recording.seconds);
 }
 
 function createControlWindow() {
-  if (alive(controlWindow)) { sendControlState(); controlWindow.show(); return; }
+  if (alive(controlWindow)) { sendControlState(); controlWindow.showInactive(); return; }
   const area = screen.getPrimaryDisplay().workArea;
   controlWindow = new BrowserWindow({
     width: 560, height: 74,
     x: Math.round(area.x + (area.width - 560) / 2), y: area.y + area.height - 94,
-    title: 'FrameBase Recording Controls', backgroundColor: '#00000000',
+    title: 'FrameBase Recording Controls', backgroundColor: '#00000000', show: false,
     frame: false, transparent: true, resizable: false, movable: true, minimizable: false, maximizable: false,
     alwaysOnTop: true, skipTaskbar: true, hasShadow: false,
     webPreferences: { preload: path.join(__dirname, 'control-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
@@ -233,7 +245,27 @@ function createControlWindow() {
   controlWindow.setContentProtection(true); // keep the controls out of the recording itself
   controlWindow.loadFile(path.join(__dirname, 'mini-control.html'));
   controlWindow.webContents.on('did-finish-load', sendControlState);
+  controlWindow.once('ready-to-show', () => controlWindow.showInactive()); // don't take focus from the studio
   controlWindow.on('closed', () => { controlWindow = null; });
+}
+
+// ---- small preferences of the person using the app (not agent settings) ----
+const uiSettingsFile = () => path.join(app.getPath('userData'), 'ui-settings.json');
+async function loadUiSettings() {
+  const saved = await fs.readFile(uiSettingsFile(), 'utf8').then(JSON.parse).catch(() => ({}));
+  if (typeof saved.floatingBar === 'boolean') uiSettings.floatingBar = saved.floatingBar;
+}
+async function saveUiSettings() {
+  const file = uiSettingsFile();
+  await fs.writeFile(`${file}.tmp`, JSON.stringify(uiSettings, null, 2));
+  await fs.rename(`${file}.tmp`, file);
+}
+function setFloatingBar(on) {
+  uiSettings.floatingBar = on;
+  saveUiSettings().catch(error => console.error('Could not save settings:', error.message));
+  buildMenu();
+  if (on && alive(studioWindow)) createControlWindow();
+  else if (!on && !recording.active && alive(controlWindow)) controlWindow.close();
 }
 
 function showStudio() {
@@ -248,7 +280,7 @@ function buildMenu() {
   const template = [
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : [{ label: 'File', submenu: [{ role: 'quit' }] }]),
     { role: 'editMenu' },
-    { label: 'View', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }, ...(app.isPackaged ? [] : [{ type: 'separator' }, { role: 'toggleDevTools' }])] },
+    { label: 'View', submenu: [{ label: 'Floating Record Bar', type: 'checkbox', checked: uiSettings.floatingBar, click: item => setFloatingBar(item.checked) }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }, ...(app.isPackaged ? [] : [{ type: 'separator' }, { role: 'toggleDevTools' }])] },
     { role: 'windowMenu' }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -295,7 +327,7 @@ async function moveFile(from, to) {
 }
 
 function registerIpc() {
-  handle('app:info', fromStudio, async () => ({ platform: process.platform, recordingsDir: recordingsFolder(), ffmpeg: await media.ffmpegInfo() }));
+  handle('app:info', fromStudio, async () => ({ platform: process.platform, systemAudio: systemAudioSupported, recordingsDir: recordingsFolder(), ffmpeg: await media.ffmpegInfo() }));
 
   // capture
   handle('capture:sources', fromStudio, async () => {
@@ -369,7 +401,13 @@ function registerIpc() {
   });
 
   // floating controls
-  handle('control:get-state', fromControl, () => ({ byAgent: recording.byAgent, paused: recording.paused, seconds: recording.seconds }));
+  handle('control:get-state', fromControl, () => ({ recording: recording.active, byAgent: recording.byAgent, paused: recording.paused, seconds: recording.seconds }));
+  listen('control:record', fromControl, () => {
+    if (recording.active) return;
+    showStudio();
+    studioWindow.webContents.send('studio:open-record');
+  });
+  listen('control:hide', fromControl, () => { if (!recording.active) setFloatingBar(false); });
   listen('control:pause', fromControl, () => { if (alive(studioWindow)) studioWindow.webContents.send('recording:toggle-pause'); });
   listen('control:stop', fromControl, () => { if (alive(studioWindow)) studioWindow.webContents.send('recording:stop'); });
   listen('control:show-studio', fromControl, () => showStudio());
@@ -498,7 +536,7 @@ function lockDownSessions() {
       const sources = await desktopCapturer.getSources({ types: ['screen', 'window'], thumbnailSize: { width: 0, height: 0 } });
       const source = sources.find(item => item.id === selection.sourceId);
       if (!source) return callback({});
-      callback({ video: source, ...(selection.systemAudio && process.platform === 'win32' ? { audio: 'loopback' } : {}) });
+      callback({ video: source, ...(selection.systemAudio && systemAudioSupported ? { audio: 'loopback' } : {}) });
     } catch {
       callback({});
     }
@@ -516,8 +554,9 @@ const primaryInstance = app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
 app.on('second-instance', () => { if (!recording.active) showStudio(); });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (!primaryInstance) return;
+  await loadUiSettings();
   media = createMediaTools({ workspaceDir: recordingsFolder() });
   protocol.handle(MEDIA_SCHEME, serveMedia);
   buildMenu();

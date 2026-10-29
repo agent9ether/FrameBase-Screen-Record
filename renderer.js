@@ -138,13 +138,19 @@ async function cleanupCapture() {
 // Used by the Start recording button and by an agent (agent-ui.js). Throws if capture could not start.
 async function startCapture({ sourceId, systemAudio, microphone }) {
   if (recorder && recorder.state !== 'inactive') throw new Error('A recording is already running.');
-  const wantsSystemAudio = Boolean(systemAudio) && api.platform === 'win32';
+  const wantsSystemAudio = Boolean(systemAudio) && (await appInfoReady).systemAudio === true;
   let begun = false;
   try {
     if (wantsSystemAudio || microphone) { captureAudioContext = new AudioContext(); await captureAudioContext.resume(); }
     await api.setCaptureSelection(sourceId, wantsSystemAudio);
     const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: { max: 3840 }, height: { max: 2160 }, frameRate: { ideal: 30, max: 30 } }, audio: wantsSystemAudio });
     activeCaptureStreams = [displayStream];
+    // without permission the system audio track arrives already ended and stays silent; say so instead of recording silence
+    if (wantsSystemAudio && !displayStream.getAudioTracks().some(track => track.readyState === 'live')) {
+      throw new Error(appInfo.platform === 'darwin'
+        ? 'macOS did not allow system audio. Allow FrameBase in System Settings › Privacy & Security › Screen & System Audio Recording (when you run it with npm start, allow your terminal app instead), or turn off system audio.'
+        : 'System audio could not be captured. Turn off system audio and try again.');
+    }
     let micStream = null;
     if (microphone) {
       micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
@@ -560,18 +566,21 @@ api.on('recording:stop', stopRecording);
 api.on('studio:focus-editor', () => { if (current) openEditor(); });
 api.on('editor:open', grant => { loadMedia(grant); openEditor(); refreshLibrary(); });
 api.on('studio:recovered', showRecovered);
+api.on('studio:open-record', openModal);
 
-api.appInfo().then(info => {
+const appInfoReady = api.appInfo().then(info => {
   appInfo = info;
   $('#record-shortcut').textContent = info.platform === 'darwin' ? '⌘ R' : 'Ctrl R';
   $('#folder-path').textContent = info.recordingsDir;
   $('#folder-path').title = info.recordingsDir;
   $('#stat-ffmpeg').textContent = info.ffmpeg.available ? `FFmpeg ${info.ffmpeg.version}` : 'FFmpeg not found';
-  if (info.platform !== 'win32') {
+  if (info.platform === 'darwin') $('#system-audio-note').textContent = 'Capture sound playing on this Mac';
+  if (!info.systemAudio) {
     $('#system-audio-toggle').checked = false;
     $('#system-audio-toggle').disabled = true;
     $('#system-audio-row').classList.add('disabled');
-    $('#system-audio-note').textContent = 'Available on Windows only';
+    $('#system-audio-note').textContent = info.platform === 'darwin' ? 'Needs macOS 14.2 or newer' : 'Available on Windows and macOS only';
   }
+  return info;
 });
 refreshLibrary();
