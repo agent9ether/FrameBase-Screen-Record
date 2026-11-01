@@ -278,14 +278,29 @@ function showStudio() {
 }
 
 const REPO_URL = 'https://github.com/agent9ether/FrameBase-Screen-Record';
+// FrameBase's own version (app.getVersion() is Electron's when the app is started from another script)
+const { version: APP_VERSION } = require('./package.json');
 function showAbout() {
-  const options = { type: 'info', title: 'About FrameBase Studio', message: `FrameBase Studio ${app.getVersion()}`,
+  const options = { type: 'info', title: 'About FrameBase Studio', message: `FrameBase Studio ${APP_VERSION}`,
     detail: `Electron ${process.versions.electron}
 
 Copyright (c) 2026 agent9ether and FrameBase contributors.
 Released under the MIT License.`, buttons: ['OK'] };
   const parent = BrowserWindow.getFocusedWindow();
   return parent ? dialog.showMessageBox(parent, options) : dialog.showMessageBox(options);
+}
+
+// GitHub's bug form, with the version and system filled in. Nothing is sent: it only opens the browser, and the
+// person writes and submits the report themselves.
+function bugReportUrl() {
+  const os = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' }[process.platform];
+  const params = new URLSearchParams({
+    template: 'bug_report.yml',
+    version: `${APP_VERSION}${app.isPackaged ? '' : ' (from source)'}`,
+    'os-version': `${os || process.platform} ${process.getSystemVersion()}${process.platform === 'linux' ? ' (kernel)' : ''}, ${process.arch}`
+  });
+  // GitHub fills text fields from the link but not dropdowns, so the OS dropdown is left for the person
+  return `${REPO_URL}/issues/new?${params}`;
 }
 
 function buildMenu() {
@@ -300,7 +315,8 @@ function buildMenu() {
         // macOS has About in the app menu
         ...(process.platform === 'darwin' ? [] : [{ label: 'About FrameBase Studio', click: showAbout }, { type: 'separator' }]),
         // these only open the browser when clicked
-        { label: 'Report an Issue', click: () => shell.openExternal(`${REPO_URL}/issues/new/choose`) },
+        { label: 'Report a Bug…', click: () => shell.openExternal(bugReportUrl()) },
+        { label: 'Suggest a Feature…', click: () => shell.openExternal(`${REPO_URL}/issues/new?template=feature_request.yml`) },
         { label: 'Source Code', click: () => shell.openExternal(REPO_URL) }
       ]
     }

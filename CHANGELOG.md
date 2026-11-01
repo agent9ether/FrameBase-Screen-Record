@@ -4,6 +4,13 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Added
+- Help › Report a Bug opens GitHub's bug form with the version and system filled in; Help › Suggest a Feature opens the
+  feature form.
+
+### Fixed
+- The editor's Properties panel no longer runs past its right edge.
+
 ## [0.1.0] - first public release
 
 ### Recording

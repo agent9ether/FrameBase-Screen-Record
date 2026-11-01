@@ -57,6 +57,18 @@ async function run() {
   const fontsOk = await inStudio('document.fonts.ready.then(() => document.fonts.check("600 16px Manrope") && [...document.fonts].some(f => f.family.includes("Manrope") && f.status === "loaded"))');
   check('bundled fonts load from disk', fontsOk);
 
+  // --- Help > Report a Bug opens GitHub's bug form with the version and system filled in (and nothing else) ---
+  const { Menu, shell } = require('electron');
+  const realOpen = shell.openExternal;
+  let bugUrl = null;
+  shell.openExternal = async url => { bugUrl = url; };
+  Menu.getApplicationMenu().items.find(item => item.role === 'help').submenu.items.find(item => item.label === 'Report a Bug…').click();
+  shell.openExternal = realOpen;
+  const report = bugUrl ? new URL(bugUrl) : null;
+  check('Report a Bug opens the bug form with version and system filled in',
+    report && report.origin === 'https://github.com' && report.searchParams.get('template') === 'bug_report.yml' && report.searchParams.get('version').startsWith(require('../../package.json').version + ' ')
+      && report.searchParams.get('os-version').startsWith(({ win32: 'Windows', darwin: 'macOS', linux: 'Linux' })[process.platform]) && [...report.searchParams.keys()].sort().join() === 'os-version,template,version', bugUrl);
+
   // --- the floating bar waits with a Record button ---
   await until(() => controls() && !controls().webContents.isLoading(), 10000, 'floating bar');
   await sleep(300);
