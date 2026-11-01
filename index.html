@@ -68,7 +68,8 @@
                     <div class="inspector-field"><span>Background <b id="text-bg-value">55%</b></span><div class="color-row"><input type="color" id="text-bg" value="#000000" title="Background color"><input type="range" id="text-bg-opacity" min="0" max="100" step="5" value="55" aria-label="Background opacity"></div></div>
                   </div>
                   <label class="inspector-field" id="selected-level-field"><span>Zoom <b id="zoom-value">150%</b></span><input type="range" id="zoom-range" min="110" max="300" step="5" value="150"></label>
-                  <p class="inspector-hint" id="selected-zoom-hint">Drag the box on the preview to choose where to zoom. It eases in and out.</p>
+                  <label class="inspector-field" id="selected-ease-field"><span>Ease in and out <b id="zoom-ease-value">0.8 s</b></span><input type="range" id="zoom-ease" min="0.2" max="2" step="0.1" value="0.8"></label>
+                  <p class="inspector-hint" id="selected-zoom-hint">Drag the box on the preview to choose where to zoom. Zooms less than a quarter second apart glide straight from one to the next.</p>
                   <div class="time-fields"><label>Starts at (s)<input type="number" id="selected-start" min="0" step="0.1"></label><label>Ends at (s)<input type="number" id="selected-end" min="0" step="0.1"></label></div>
                   <button class="button secondary small-button danger-button" id="selected-delete" type="button">Delete</button>
                 </div>

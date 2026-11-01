@@ -87,7 +87,7 @@
 .time-fields input{height:26px;min-width:0;border:1px solid #303437;border-radius:5px;background:#0d0f10;color:#e6e8e2;padding:0 7px;font:10px 'DM Mono',monospace}
 .danger-button{color:#f0a097}.inspector-field[hidden],.inspector-hint[hidden]{display:none}
 .preview-text.selected{outline:1px dashed var(--lime)}.preview-text[hidden]{display:none}
-.preview-frame video{transform-origin:0 0}
+.preview-frame video{transform-origin:0 0;will-change:transform}
 .zoom-box{position:absolute;box-sizing:border-box;border:2px solid var(--lime);background:#cde4700f;box-shadow:0 0 0 9999px #0000006b;cursor:move;touch-action:none;color:var(--lime);font:9px 'DM Mono',monospace;padding:3px 5px;z-index:3}.zoom-box[hidden]{display:none}
 
 /* text style: the preview text is sized against a 1080-pixel-tall frame (--text-scale) and drawn the same way on export */

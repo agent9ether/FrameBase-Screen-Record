@@ -355,7 +355,7 @@ function applyTimedEdits() {
   const time = video.currentTime || 0;
   video.style.objectFit = cropEnabled ? 'cover' : 'contain';
   const editingZoom = Boolean(selected) && !isTextItem(selected) && video.paused;
-  const view = editTiming.zoomView(editingZoom ? { level: 1, x: 50, y: 50 } : editTiming.zoomAt(zooms, time));
+  const view = editingZoom ? editTiming.zoomView({ level: 1, x: 50, y: 50 }) : editTiming.viewAt(zooms, time);
   video.style.transform = `translate(${view.tx * 100}%, ${view.ty * 100}%) scale(${view.level})`;
   const box = $('#zoom-box');
   box.hidden = !editingZoom;
@@ -499,11 +499,17 @@ function renderSelected() {
   $('#selected-text-field').hidden = !text;
   $('#text-style-fields').hidden = !text;
   $('#selected-level-field').hidden = text;
+  $('#selected-ease-field').hidden = text;
   $('#selected-zoom-hint').hidden = text;
   if (text) {
     if (document.activeElement !== $('#selected-text')) $('#selected-text').value = selected.text;
     syncTextStyleFields();
-  } else { $('#zoom-range').value = String(Math.round(selected.level * 100)); $('#zoom-value').textContent = `${Math.round(selected.level * 100)}%`; }
+  } else {
+    $('#zoom-range').value = String(Math.round(selected.level * 100));
+    $('#zoom-value').textContent = `${Math.round(selected.level * 100)}%`;
+    $('#zoom-ease').value = String(selected.ease);
+    $('#zoom-ease-value').textContent = `${selected.ease.toFixed(1)} s`;
+  }
   syncSelectedTimes();
 }
 function syncTextStyleFields() {
@@ -577,7 +583,7 @@ function addText(text) {
 function addZoom() {
   if (!requireClip()) return;
   video.pause();
-  const item = { level: 1.5, x: 50, y: 50, ...editTiming.placeAt(video.currentTime || 0, videoDuration()) };
+  const item = { level: 1.5, x: 50, y: 50, ease: editTiming.ZOOM_EASE, ...editTiming.placeAt(video.currentTime || 0, videoDuration()) };
   zooms.push(item);
   editsChanged();
   select(item);
@@ -597,6 +603,11 @@ $('#zoom-range').oninput = event => {
   renderTimelineEdits();
   renderEditLists();
   applyTimedEdits();
+};
+$('#zoom-ease').oninput = event => {
+  if (!selected || isTextItem(selected)) return;
+  selected.ease = Number(event.target.value);
+  $('#zoom-ease-value').textContent = `${selected.ease.toFixed(1)} s`;
 };
 $$('#selected-start, #selected-end').forEach(input => {
   input.onchange = () => {
@@ -733,6 +744,7 @@ $('#export-start').onclick = async () => {
 // Plays the clip once onto a canvas with the zoom, crop and text applied, streaming the result to main.
 async function renderEditedClip(sendChunk) {
   const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
   canvas.width = video.videoWidth - (video.videoWidth % 2);
   const frame = $('#preview-frame'), stageWidth = frame.clientWidth || canvas.width, stageHeight = frame.clientHeight || video.videoHeight;
   canvas.height = cropEnabled ? Math.max(2, Math.round(canvas.width / (stageWidth / stageHeight) / 2) * 2) : video.videoHeight - (video.videoHeight % 2);
@@ -746,7 +758,7 @@ async function renderEditedClip(sendChunk) {
     const time = video.currentTime;
     const scale = cropEnabled ? Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight) : Math.min(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
     const w = video.videoWidth * scale, h = video.videoHeight * scale;
-    const view = editTiming.zoomView(editTiming.zoomAt(zooms, time));
+    const view = editTiming.viewAt(zooms, time);
     ctx.setTransform(view.level, 0, 0, view.level, view.tx * canvas.width, view.ty * canvas.height);
     ctx.drawImage(video, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
