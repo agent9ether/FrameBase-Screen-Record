@@ -11,7 +11,7 @@ too.
 Everything runs on your computer: recordings, editing and voice-overs never leave it, and the app makes no network
 requests of its own.
 
-![The FrameBase editor with a styled text overlay on the timeline](docs/screenshots/editor-text.png)
+![Styling a text overlay, then a zoom gliding in and back out during playback](docs/screenshots/demo.gif)
 
 ## Getting started
 
@@ -93,6 +93,8 @@ copy in narration it made another way.
 | ![Choosing an app window to record](docs/screenshots/record.png) | ![A zoom selected in the editor, with the box that marks where it zooms](docs/screenshots/editor-zoom.png) |
 
 ![The floating bar while an agent records, with the AGENT badge](docs/screenshots/bar-agent.png)
+
+![The editor with a styled text overlay on the timeline](docs/screenshots/editor-text.png)
 
 * **New recording** (Ctrl R, ⌘ R on macOS): pick a screen or app window, optionally system audio and your
   microphone. A floating bar lets you pause, stop or bring the studio back; it is kept out of the recording.
