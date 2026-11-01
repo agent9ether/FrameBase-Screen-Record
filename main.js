@@ -10,6 +10,7 @@ const { promisify } = require('node:util');
 const { createAgentServer } = require('./agent-server');
 const { createMediaTools, MP4_OUT, WEBM_OUT, EVEN } = require('./media-tools');
 const { fixWebmFileDuration } = require('./webm-duration');
+const { normalizeEdits } = require('./edit-timing');
 
 const execFileAsync = promisify(execFile);
 const MEDIA_SCHEME = 'framebase-media';
@@ -300,13 +301,8 @@ function listen(channel, guard, fn) {
 }
 const isText = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max;
 const isBytes = value => value instanceof ArrayBuffer || ArrayBuffer.isView(value);
-function cleanEdits(edits = {}) {
-  const zoomLevel = Math.min(3, Math.max(1, Number(edits.zoomLevel) || 1));
-  const textItems = (Array.isArray(edits.textItems) ? edits.textItems : []).slice(0, 100)
-    .filter(item => item && typeof item.text === 'string')
-    .map(item => ({ text: item.text.slice(0, 500), x: Math.min(100, Math.max(0, Number(item.x) || 0)), y: Math.min(100, Math.max(0, Number(item.y) || 0)) }));
-  return { zoomLevel, cropEnabled: edits.cropEnabled === true, textItems };
-}
+// project edits: crop, and text and zooms with start and end times (older projects are converted)
+const cleanEdits = (edits = {}) => normalizeEdits(edits && typeof edits === 'object' ? edits : {});
 const projectName = value => (typeof value === 'string' ? value : '').replace(/[^\w .-]+/g, '').trim().slice(0, 80) || 'Untitled project';
 
 async function transcode(input, output, format) {
@@ -435,7 +431,7 @@ function registerIpc() {
     const name = projectName(payload.name);
     const result = await dialog.showSaveDialog(studioWindow, { title: 'Save FrameBase project', defaultPath: path.join(path.dirname(source), `${name}.framebase`), filters: [{ name: 'FrameBase project', extensions: ['framebase'] }] });
     if (result.canceled || !result.filePath) return { canceled: true };
-    const project = { version: 2, name, media: { path: source, relative: path.relative(path.dirname(result.filePath), source) }, edits: cleanEdits(payload.edits) };
+    const project = { version: 3, name, media: { path: source, relative: path.relative(path.dirname(result.filePath), source) }, edits: cleanEdits(payload.edits) };
     await fs.writeFile(result.filePath, JSON.stringify(project, null, 2));
     return { canceled: false, filePath: result.filePath };
   });
@@ -445,7 +441,7 @@ function registerIpc() {
     const projectFile = result.filePaths[0];
     const project = JSON.parse(await fs.readFile(projectFile, 'utf8'));
     let source;
-    if (project.version === 2 && project.media) {
+    if ((project.version === 2 || project.version === 3) && project.media) {
       const candidates = [path.resolve(path.dirname(projectFile), String(project.media.relative || '')), String(project.media.path || '')];
       for (const candidate of candidates) if (candidate && (await fs.stat(candidate).catch(() => null))?.isFile()) { source = candidate; break; }
       if (!source) throw new Error(`The project's video was not found. It was at ${project.media.path}.`);

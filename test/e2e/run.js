@@ -190,9 +190,31 @@ async function run() {
   await call('open_in_editor', { file: 'e2e-trim.mp4' });
   await until(() => inStudio('document.querySelector("#preview-video").readyState >= 2 && document.querySelector("#editor-title").textContent === "e2e-trim"'), 15000, 'trim loads');
   nextSavePath = path.join(exportsDir, 'edited.webm');
+  // timed edits: a zoom from the start, and text that ends at 0.5 s
+  const seek = async seconds => {
+    await inStudio(`new Promise(resolve => { const v = document.querySelector('#preview-video'); v.addEventListener('seeked', resolve, { once: true }); v.currentTime = ${seconds}; })`);
+    await sleep(100);
+  };
+  await seek(0);
   await inStudio(`(() => {
-    const zoom = document.querySelector('#zoom-range'); zoom.value = '150'; zoom.dispatchEvent(new Event('input'));
+    document.querySelector('#add-zoom').click();
+    const zoom = document.querySelector('#zoom-range'); zoom.value = '200'; zoom.dispatchEvent(new Event('input'));
     document.querySelector('#text-input').value = 'Edited'; document.querySelector('#text-form').requestSubmit();
+    const end = document.querySelector('#selected-end'); end.value = '0.5'; end.dispatchEvent(new Event('change'));
+    return true;
+  })()`);
+  check('text and zoom appear on their timeline tracks', await inStudio('document.querySelectorAll("#text-lane .edit-block").length === 1 && document.querySelectorAll("#zoom-lane .edit-block").length === 1'));
+  // let go of the selection by clicking an empty spot, which also jumps to 1 s of the clip
+  await inStudio(`(() => { const area = document.querySelector('#track-area'), r = area.getBoundingClientRect(), v = document.querySelector('#preview-video');
+    area.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + r.width * (1 / v.duration), clientY: r.top + 5 })); return true; })()`);
+  await sleep(300);
+  const textVisible = () => inStudio('[...document.querySelectorAll("#text-overlay-layer .preview-text")].some(node => !node.hidden)');
+  const zoomScale = () => inStudio('Number((/scale\\(([\\d.]+)\\)/.exec(document.querySelector("#preview-video").style.transform) || [0, 0])[1])');
+  check('text is hidden after its end time', !(await textVisible()));
+  check('zoom applies inside its time', (await zoomScale()) > 1.5, String(await zoomScale()));
+  await seek(0.2);
+  check('text shows inside its time', await textVisible());
+  await inStudio(`(() => {
     document.querySelector('#export-video').click();
     document.querySelector('#export-modal [data-format="webm"]').click();
     document.querySelector('#export-start').click();

@@ -45,6 +45,7 @@
       "agent-server.js",
       "media-tools.js",
       "webm-duration.js",
+      "edit-timing.js",
       "index.html",
       "mini-control.html",
       "renderer.js",

@@ -29,6 +29,7 @@ you could not verify (macOS/Linux, multi-monitor, a real microphone and system a
 | `agent-server.js` | Agent-control MCP server (Streamable HTTP, stateless per request), tools and prompt |
 | `media-tools.js` | FFmpeg and OS speech helpers confined to the recordings folder; used by agents and export |
 | `webm-duration.js` | Writes the duration into MediaRecorder WebM files |
+| `edit-timing.js` | Timed text and zoom: what shows at a moment, zoom easing, project edit cleanup (studio, main and tests) |
 | `agent-ui.js`, `agent.css` | Agent settings page and `window.__agentStart` |
 | `agent-skills/` | Claude Code skill for the video-production workflow |
 | `test/`, `test/e2e/run.js` | Unit tests and the real-app end-to-end run |

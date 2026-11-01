@@ -30,6 +30,15 @@ module.exports = [
     rules: { 'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none', varsIgnorePattern: '^(startCapture)$' }] }
   },
   {
+    // edit-timing.js runs in the studio (as window.editTiming) and in Node for the unit tests
+    files: ['edit-timing.js'],
+    languageOptions: { globals: { ...globals.browser } }
+  },
+  {
+    files: ['renderer.js'],
+    languageOptions: { globals: { editTiming: 'readonly' } }
+  },
+  {
     files: ['agent-ui.js'],
     languageOptions: { globals: { $: 'readonly', $$: 'readonly', startCapture: 'readonly' } }
   },

@@ -84,12 +84,16 @@ copy in narration it made another way.
   mid-recording, the next start keeps what was written as `…-recovered.webm`. Quitting while recording stops and
   saves first. Closing the recorded window stops the recording.
 * **Home** and **Media library** list the videos in that folder, including what agents make.
-* The **editor** plays a clip and has zoom, crop-to-fill and draggable text overlays in the Properties panel.
+* The **editor** plays a clip and places **text** and **zooms** on the timeline. **＋ Text** and **＋ Zoom** add one
+  at the playhead, lasting 3 seconds; drag it on its track to move it, or drag its edges to change when it starts and
+  ends (or type exact times in the Properties panel). Drag text on the preview to position it. While a zoom is
+  selected, a box on the preview shows the area it zooms into: drag the box, and set how far with the slider. Zooms
+  ease in and out. *Crop to fill the frame* applies to the whole clip. Select an item and press Delete to remove it.
 * **Export**: MP4 (needs FFmpeg) or WebM. Without edits the clip is copied or converted directly; with zoom, crop or
   text, the clip plays once in real time to render them in.
-* **Save project** writes a small `.framebase` file that points to the video and stores your edits. Keep the two
-  together. Older project files that embedded the video still open (the video is written out to the recordings
-  folder once).
+* **Save project** writes a small `.framebase` file that points to the video and stores your edits with their times. Keep the two
+  together. Older project files still open: their zoom and text cover the whole clip, and ones that embedded the
+  video write it out to the recordings folder once.
 
 ## Development
 

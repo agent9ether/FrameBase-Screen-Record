@@ -12,7 +12,7 @@ let mediaStream = null, recorder = null, timer = null, seconds = 0, paused = fal
 let selectedSource = 'screen', selectedCaptureSourceId = null, activeCaptureStreams = [], captureAudioContext = null;
 let recordingStartedAt = 0, pausedTotalMs = 0, pausedAt = 0, writeQueue = Promise.resolve(), writeError = null;
 // editor
-let current = null, zoomLevel = 1, cropEnabled = false, textItems = [], playheadFrame = 0, exportFormat = 'mp4', recoveredGrants = [];
+let current = null, cropEnabled = false, textItems = [], zooms = [], selected = null, playheadFrame = 0, exportFormat = 'mp4', recoveredGrants = [];
 
 // ---- formatting ----
 function fmt(n) {
@@ -242,9 +242,8 @@ const video = $('#preview-video');
 
 function loadMedia(grant, edits = {}) {
   current = grant;
-  zoomLevel = edits.zoomLevel || 1;
-  cropEnabled = Boolean(edits.cropEnabled);
-  textItems = Array.isArray(edits.textItems) ? edits.textItems.map(item => ({ ...item })) : [];
+  ({ cropEnabled, textItems, zooms } = editTiming.normalizeEdits(edits));
+  selected = null;
   video.pause();
   video.crossOrigin = 'anonymous';
   video.src = grant.url;
@@ -253,6 +252,8 @@ function loadMedia(grant, edits = {}) {
   $('#empty-preview').hidden = true;
   $('#preview-badge').hidden = false;
   $('#clip-track').hidden = false;
+  $('#text-lane').hidden = false;
+  $('#zoom-lane').hidden = false;
   $('.track-empty').hidden = true;
   $('#clip-label').textContent = grant.name;
   $('#editor-title').textContent = grant.name.replace(/\.[^.]+$/, '');
@@ -262,9 +263,7 @@ function loadMedia(grant, edits = {}) {
   $('#fact-name').title = grant.path;
   $('#fact-resolution').textContent = '…';
   $('#fact-duration').textContent = '…';
-  syncEditControls();
-  renderTextItems();
-  applyViewTransform();
+  editsChanged();
   video.load();
 }
 
@@ -276,6 +275,9 @@ video.onloadedmetadata = () => {
   $('#fact-resolution').textContent = video.videoWidth ? `${video.videoWidth} × ${video.videoHeight}` : 'Audio only';
   $('#fact-duration').textContent = Number.isFinite(video.duration) ? fmt(video.duration) : 'Unknown';
   renderRuler(total);
+  editTiming.fitToDuration(textItems, total);
+  editTiming.fitToDuration(zooms, total);
+  editsChanged();
   updatePlayhead();
 };
 video.onerror = () => { if (current) alert(`This video could not be played: ${current.name}`); };
@@ -290,6 +292,7 @@ function updatePlayhead() {
   const ratio = Math.min(1, Math.max(0, (video.currentTime || 0) / videoDuration()));
   $('.playhead').style.left = `${ratio * 100}%`;
   $('#play-time').textContent = fmt(video.currentTime || 0);
+  applyTimedEdits();
 }
 
 async function importClip() {
@@ -302,15 +305,35 @@ $('#import-clip').onclick = importClip;
 $('#library-import').onclick = importClip;
 $('#reveal-clip').onclick = () => { if (current) api.media.reveal(current.token).catch(error => alert(error.message)); };
 
-// frame edits
+// ---- timed edits: text and zoom placed on the timeline ----
+// Each text and zoom has a start and end in seconds. The preview and the export both ask edit-timing.js what shows
+// at the current moment, so what plays in the preview is what gets exported.
+const textNodes = new Map();
+const isTextItem = item => textItems.includes(item);
+const hasEdits = () => cropEnabled || textItems.length > 0 || zooms.length > 0;
+function requireClip() {
+  if (current) return true;
+  alert('Record or import a clip first.');
+  return false;
+}
+
+function editsChanged() {
+  if (selected && !isTextItem(selected) && !zooms.includes(selected)) selected = null;
+  renderTextNodes();
+  renderTimelineEdits();
+  renderEditLists();
+  renderSelected();
+  syncEditControls();
+  fitPreviewFrame();
+  applyTimedEdits();
+}
 function syncEditControls() {
-  $('#zoom-range').value = String(Math.round(zoomLevel * 100));
-  $('#zoom-value').textContent = `${Math.round(zoomLevel * 100)}%`;
   $('#crop-check').checked = cropEnabled;
   $('#crop-tool').classList.toggle('selected', cropEnabled);
-  $('#zoom-tool').classList.toggle('selected', zoomLevel !== 1);
+  $('#zoom-tool').classList.toggle('selected', zooms.length > 0);
   $('#text-tool').classList.toggle('selected', textItems.length > 0);
 }
+
 // The frame is the exported picture: the video's shape, or the stage's shape when cropping to fill.
 // It is fitted inside the stage so the whole picture shows, and text positions are relative to it.
 function fitPreviewFrame() {
@@ -323,60 +346,236 @@ function fitPreviewFrame() {
   frame.style.height = `${Math.floor(width / aspect)}px`;
 }
 new ResizeObserver(fitPreviewFrame).observe($('#preview-stage'));
-function applyViewTransform() {
-  video.style.transform = `scale(${zoomLevel})`;
+
+// What the preview shows at the playhead. While a zoom is selected and the clip is paused, the picture stays
+// unzoomed and a box marks the part that will fill the frame, so it can be dragged into place.
+function applyTimedEdits() {
+  const time = video.currentTime || 0;
   video.style.objectFit = cropEnabled ? 'cover' : 'contain';
-  fitPreviewFrame();
+  const editingZoom = Boolean(selected) && !isTextItem(selected) && video.paused;
+  const view = editTiming.zoomView(editingZoom ? { level: 1, x: 50, y: 50 } : editTiming.zoomAt(zooms, time));
+  video.style.transform = `translate(${view.tx * 100}%, ${view.ty * 100}%) scale(${view.level})`;
+  const box = $('#zoom-box');
+  box.hidden = !editingZoom;
+  if (editingZoom) {
+    const area = editTiming.zoomView(selected).box;
+    Object.assign(box.style, { left: `${area.left * 100}%`, top: `${area.top * 100}%`, width: `${area.width * 100}%`, height: `${area.height * 100}%` });
+    box.textContent = `${Math.round(selected.level * 100)}%`;
+  }
+  textItems.forEach(item => {
+    const node = textNodes.get(item);
+    if (node) node.hidden = !(item === selected || editTiming.textsAt([item], time).length > 0);
+  });
 }
-const hasEdits = () => zoomLevel !== 1 || cropEnabled || textItems.length > 0;
-function requireClip() {
-  if (current) return true;
-  alert('Record or import a clip first.');
-  return false;
+
+function renderTextNodes() {
+  const layer = $('#text-overlay-layer');
+  for (const [item, node] of textNodes) if (!isTextItem(item)) { node.remove(); textNodes.delete(item); }
+  textItems.forEach(item => {
+    let node = textNodes.get(item);
+    if (!node) {
+      node = el('div', { className: 'preview-text', title: 'Drag to move' });
+      node.onpointerdown = event => {
+        select(item, { seek: false });
+        node.setPointerCapture(event.pointerId);
+        const rect = layer.getBoundingClientRect(), box = node.getBoundingClientRect();
+        const offsetX = event.clientX - box.left, offsetY = event.clientY - box.top;
+        node.onpointermove = move => {
+          item.x = Math.max(0, Math.min(95, ((move.clientX - offsetX - rect.left) / rect.width) * 100));
+          item.y = Math.max(0, Math.min(95, ((move.clientY - offsetY - rect.top) / rect.height) * 100));
+          node.style.left = `${item.x}%`;
+          node.style.top = `${item.y}%`;
+        };
+        node.onpointerup = () => { node.onpointermove = null; };
+      };
+      textNodes.set(item, node);
+      layer.append(node);
+    }
+    node.textContent = item.text;
+    node.style.left = `${item.x}%`;
+    node.style.top = `${item.y}%`;
+    node.classList.toggle('selected', item === selected);
+  });
 }
-$('#zoom-range').oninput = event => { zoomLevel = Number(event.target.value) / 100; syncEditControls(); applyViewTransform(); };
-$('#crop-check').onchange = event => { cropEnabled = event.target.checked; syncEditControls(); applyViewTransform(); };
-$('#zoom-tool').onclick = () => { if (requireClip()) $('#zoom-range').focus(); };
-$('#crop-tool').onclick = () => { if (!requireClip()) return; cropEnabled = !cropEnabled; syncEditControls(); applyViewTransform(); };
-$('#text-tool').onclick = () => { if (requireClip()) $('#text-input').focus(); };
+
+// drag the zoom box to choose where the selected zoom points
+$('#zoom-box').onpointerdown = event => {
+  if (!selected || isTextItem(selected)) return;
+  const box = event.currentTarget, frame = $('#preview-frame').getBoundingClientRect(), start = box.getBoundingClientRect();
+  const offsetX = event.clientX - (start.left + start.width / 2), offsetY = event.clientY - (start.top + start.height / 2);
+  box.setPointerCapture(event.pointerId);
+  box.onpointermove = move => {
+    const x = ((move.clientX - offsetX - frame.left) / frame.width) * 100, y = ((move.clientY - offsetY - frame.top) / frame.height) * 100;
+    const area = editTiming.zoomView({ level: selected.level, x, y }).box;
+    selected.x = (area.left + area.width / 2) * 100;
+    selected.y = (area.top + area.height / 2) * 100;
+    applyTimedEdits();
+  };
+  box.onpointerup = () => { box.onpointermove = null; };
+};
+
+// timeline tracks: drag a block to move it, drag its edges to change when it starts or ends
+function renderTimelineEdits() {
+  const duration = videoDuration();
+  const lanes = [['#text-lane', textItems, item => item.text], ['#zoom-lane', zooms, item => `Zoom ${Math.round(item.level * 100)}%`]];
+  lanes.forEach(([lane, items, label]) => {
+    const { rows, count } = editTiming.stackRows(items);
+    $(lane).replaceChildren(...items.map(item => {
+      const block = el('div', { className: `edit-block${item === selected ? ' selected' : ''}`, title: `${label(item)}: ${fmt(item.start)} to ${fmt(item.end)}. Drag to move, drag the edges to change the length.` }, [
+        el('span', { className: 'edit-handle start' }), el('span', { className: 'edit-label', textContent: label(item) }), el('span', { className: 'edit-handle end' })
+      ]);
+      const place = () => {
+        block.style.left = `${(item.start / duration) * 100}%`;
+        block.style.width = `${((item.end - item.start) / duration) * 100}%`;
+      };
+      place();
+      block.style.top = `${(rows.get(item) / count) * 100}%`;
+      block.style.height = `${100 / count}%`;
+      block.onclick = event => event.stopPropagation();
+      block.onpointerdown = event => {
+        event.stopPropagation();
+        const edge = event.target.classList;
+        const mode = edge.contains('start') ? 'start' : edge.contains('end') ? 'end' : 'move';
+        const width = $(lane).getBoundingClientRect().width || 1, x0 = event.clientX, { start, end } = item;
+        video.pause();
+        select(item, { seek: false, timeline: false });
+        $$('.edit-block.selected').forEach(other => other.classList.remove('selected'));
+        block.classList.add('selected');
+        block.setPointerCapture(event.pointerId);
+        let moved = false;
+        block.onpointermove = move => {
+          if (Math.abs(move.clientX - x0) > 2) moved = true;
+          if (!moved) return;
+          const delta = ((move.clientX - x0) / width) * duration;
+          if (mode === 'move') {
+            const shift = Math.max(-start, Math.min(duration - end, delta));
+            item.start = start + shift;
+            item.end = end + shift;
+          }
+          if (mode === 'start') item.start = Math.max(0, Math.min(end - editTiming.MIN_LENGTH, start + delta));
+          if (mode === 'end') item.end = Math.min(duration, Math.max(start + editTiming.MIN_LENGTH, end + delta));
+          place();
+          // show the frame at the edge being moved
+          video.currentTime = mode === 'end' ? Math.max(item.start, item.end - 0.05) : item.start;
+          syncSelectedTimes();
+        };
+        block.onpointerup = () => {
+          block.onpointermove = null;
+          if (!moved) select(item);
+          editsChanged();
+        };
+      };
+      return block;
+    }));
+  });
+}
+
+function renderEditLists() {
+  const row = (item, label) => {
+    const pick = el('button', { type: 'button', className: `edit-pick${item === selected ? ' selected' : ''}`, title: 'Select' }, [
+      el('span', { textContent: label }), el('small', { textContent: `${fmt(item.start).slice(0, 7)} – ${fmt(item.end).slice(0, 7)}` })
+    ]);
+    pick.onclick = () => select(item);
+    const remove = el('button', { type: 'button', className: 'edit-remove', textContent: '×', title: 'Remove' });
+    remove.onclick = () => removeEdit(item);
+    return el('li', {}, [pick, remove]);
+  };
+  $('#text-list').replaceChildren(...textItems.map(item => row(item, item.text)));
+  $('#zoom-list').replaceChildren(...zooms.map(item => row(item, `Zoom ${Math.round(item.level * 100)}%`)));
+}
+
+// the selected text or zoom, with its exact times
+function renderSelected() {
+  $('#selected-edit').hidden = !selected;
+  if (!selected) return;
+  const text = isTextItem(selected);
+  $('#selected-title').textContent = text ? 'Selected text' : 'Selected zoom';
+  $('#selected-text-field').hidden = !text;
+  $('#selected-level-field').hidden = text;
+  $('#selected-zoom-hint').hidden = text;
+  if (text) { if (document.activeElement !== $('#selected-text')) $('#selected-text').value = selected.text; }
+  else { $('#zoom-range').value = String(Math.round(selected.level * 100)); $('#zoom-value').textContent = `${Math.round(selected.level * 100)}%`; }
+  syncSelectedTimes();
+}
+function syncSelectedTimes() {
+  if (!selected) return;
+  [['#selected-start', selected.start], ['#selected-end', selected.end]].forEach(([id, value]) => {
+    if (document.activeElement !== $(id)) $(id).value = value.toFixed(1);
+  });
+}
+function select(item, { seek = true, timeline = true } = {}) {
+  selected = item;
+  // jump to a moment the item applies to, so the preview shows it
+  if (seek && item && !(video.currentTime >= item.start && video.currentTime < item.end)) video.currentTime = item.start;
+  renderTextNodes();
+  if (timeline) renderTimelineEdits();
+  renderEditLists();
+  renderSelected();
+  applyTimedEdits();
+}
+function removeEdit(item) {
+  textItems = textItems.filter(other => other !== item);
+  zooms = zooms.filter(other => other !== item);
+  editsChanged();
+}
+function addText(text) {
+  const item = { text, x: 38, y: 44, ...editTiming.placeAt(video.currentTime || 0, videoDuration()) };
+  textItems.push(item);
+  editsChanged();
+  select(item);
+}
+function addZoom() {
+  if (!requireClip()) return;
+  video.pause();
+  const item = { level: 1.5, x: 50, y: 50, ...editTiming.placeAt(video.currentTime || 0, videoDuration()) };
+  zooms.push(item);
+  editsChanged();
+  select(item);
+}
+
+$('#selected-text').oninput = event => {
+  if (!selected || !isTextItem(selected)) return;
+  selected.text = event.target.value.slice(0, 500);
+  renderTextNodes();
+  renderTimelineEdits();
+  renderEditLists();
+};
+$('#zoom-range').oninput = event => {
+  if (!selected || isTextItem(selected)) return;
+  selected.level = Number(event.target.value) / 100;
+  $('#zoom-value').textContent = `${event.target.value}%`;
+  renderTimelineEdits();
+  renderEditLists();
+  applyTimedEdits();
+};
+$$('#selected-start, #selected-end').forEach(input => {
+  input.onchange = () => {
+    const value = Number(input.value);
+    if (!selected || input.value === '' || !Number.isFinite(value)) return syncSelectedTimes();
+    if (input.id === 'selected-start') selected.start = Math.max(0, Math.min(selected.end - editTiming.MIN_LENGTH, value));
+    else selected.end = Math.min(videoDuration(), Math.max(selected.start + editTiming.MIN_LENGTH, value));
+    editsChanged();
+  };
+});
+$('#selected-delete').onclick = () => { if (selected) removeEdit(selected); };
+document.addEventListener('keydown', event => {
+  if (!selected || !['Delete', 'Backspace'].includes(event.key) || !pages.editor.classList.contains('active-page')) return;
+  if (event.target.closest('input, textarea, select')) return;
+  event.preventDefault();
+  removeEdit(selected);
+});
+$('#crop-check').onchange = event => { cropEnabled = event.target.checked; editsChanged(); };
+$('#crop-tool').onclick = () => { if (!requireClip()) return; cropEnabled = !cropEnabled; editsChanged(); };
+$('#zoom-tool').onclick = addZoom;
+$('#add-zoom').onclick = $('#add-zoom-here').onclick = addZoom;
+$('#text-tool').onclick = $('#add-text').onclick = () => { if (requireClip()) $('#text-input').focus(); };
 $('#text-form').onsubmit = event => {
   event.preventDefault();
   const value = $('#text-input').value.trim();
   if (!value || !requireClip()) return;
-  textItems.push({ text: value, x: 38, y: 44 });
   $('#text-input').value = '';
-  renderTextItems();
+  addText(value);
 };
-
-function renderTextItems() {
-  const layer = $('#text-overlay-layer');
-  layer.replaceChildren(...textItems.map(item => {
-    const node = el('div', { className: 'preview-text', textContent: item.text, title: 'Drag to move' });
-    node.style.left = `${item.x}%`;
-    node.style.top = `${item.y}%`;
-    node.onpointerdown = event => {
-      node.setPointerCapture(event.pointerId);
-      const rect = layer.getBoundingClientRect(), box = node.getBoundingClientRect();
-      const offsetX = event.clientX - box.left, offsetY = event.clientY - box.top;
-      node.onpointermove = move => {
-        item.x = Math.max(0, Math.min(95, ((move.clientX - offsetX - rect.left) / rect.width) * 100));
-        item.y = Math.max(0, Math.min(95, ((move.clientY - offsetY - rect.top) / rect.height) * 100));
-        node.style.left = `${item.x}%`;
-        node.style.top = `${item.y}%`;
-      };
-      node.onpointerup = () => { node.onpointermove = null; };
-    };
-    return node;
-  }));
-  $('#text-list').replaceChildren(...textItems.map((item, index) => {
-    const input = el('input', { type: 'text', value: item.text, maxLength: 500 });
-    input.oninput = () => { item.text = input.value; layer.children[index].textContent = input.value; };
-    const remove = el('button', { type: 'button', textContent: '×', title: 'Remove this text' });
-    remove.onclick = () => { textItems.splice(index, 1); renderTextItems(); };
-    return el('li', {}, [input, remove]);
-  }));
-  syncEditControls();
-}
 
 // playback
 function animatePlayhead() { updatePlayhead(); if (!video.paused) playheadFrame = requestAnimationFrame(animatePlayhead); }
@@ -410,6 +609,8 @@ $('#track-area').onclick = event => {
   if (video.hidden) return;
   const rect = event.currentTarget.getBoundingClientRect(), ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
   video.currentTime = ratio * videoDuration();
+  // clicking an empty spot also lets go of the selected text or zoom
+  if (selected) { selected = null; editsChanged(); }
   updatePlayhead();
 };
 
@@ -418,7 +619,7 @@ const safeName = () => ($('#editor-title').textContent || 'FrameBase recording')
 $('#save-project').onclick = async () => {
   if (!requireClip()) return;
   try {
-    const result = await api.project.save({ name: safeName(), mediaToken: current.token, edits: { zoomLevel, cropEnabled, textItems } });
+    const result = await api.project.save({ name: safeName(), mediaToken: current.token, edits: { cropEnabled, textItems, zooms } });
     if (!result.canceled) alert(`Project saved:\n${result.filePath}\n\nThe project points to the video in its current place, so keep them together.`);
   } catch (error) { alert(`Could not save project: ${error.message}`); }
 };
@@ -490,10 +691,14 @@ async function renderEditedClip(sendChunk) {
   const draw = () => {
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const scale = (cropEnabled ? Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight) : Math.min(canvas.width / video.videoWidth, canvas.height / video.videoHeight)) * zoomLevel;
+    const time = video.currentTime;
+    const scale = cropEnabled ? Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight) : Math.min(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
     const w = video.videoWidth * scale, h = video.videoHeight * scale;
+    const view = editTiming.zoomView(editTiming.zoomAt(zooms, time));
+    ctx.setTransform(view.level, 0, 0, view.level, view.tx * canvas.width, view.ty * canvas.height);
     ctx.drawImage(video, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
-    textItems.forEach(item => {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    editTiming.textsAt(textItems, time).forEach(item => {
       const fontSize = Math.max(16, (20 * canvas.width) / stageWidth);
       ctx.font = `600 ${fontSize}px Manrope, Arial, sans-serif`;
       ctx.textBaseline = 'top';
