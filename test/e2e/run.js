@@ -168,6 +168,14 @@ async function run() {
   check('open_in_editor', !opened.error, opened.error || '');
   await until(() => inStudio('document.querySelector("#preview-video").readyState >= 2'), 15000, 'editor video loads');
   check('editor shows the file', await inStudio('document.querySelector("#editor-title").textContent') === 'e2e-final');
+  await until(() => inStudio('document.querySelector("#preview-video").videoWidth > 0'), 10000, 'editor video metadata');
+  const fit = await inStudio(`(() => {
+    const stage = document.querySelector("#preview-stage").getBoundingClientRect(), frame = document.querySelector("#preview-frame").getBoundingClientRect(), v = document.querySelector("#preview-video");
+    const inside = frame.left >= stage.left - 1 && frame.right <= stage.right + 1 && frame.top >= stage.top - 1 && frame.bottom <= stage.bottom + 1;
+    const shape = Math.abs(frame.width / frame.height - v.videoWidth / v.videoHeight) < 0.02;
+    return JSON.stringify({ inside, shape, stage: [stage.width, stage.height], frame: [frame.width, frame.height], video: [v.videoWidth, v.videoHeight] });
+  })()`);
+  check('preview shows the whole frame, not cropped', JSON.parse(fit).inside && JSON.parse(fit).shape, fit);
   const untainted = await inStudio('(() => { const v = document.querySelector("#preview-video"); const c = document.createElement("canvas"); c.width = 8; c.height = 8; const x = c.getContext("2d"); x.drawImage(v, 0, 0, 8, 8); try { x.getImageData(0, 0, 1, 1); return true; } catch (e) { return e.name; } })()');
   check('editor canvas is not tainted (export can render)', untainted === true, String(untainted));
   const seekOk = await inStudio('new Promise(r => { const v = document.querySelector("#preview-video"); v.addEventListener("seeked", () => r(v.currentTime > 1), { once: true }); v.currentTime = 1.5; })');

@@ -249,6 +249,7 @@ function loadMedia(grant, edits = {}) {
   video.crossOrigin = 'anonymous';
   video.src = grant.url;
   video.hidden = false;
+  $('#preview-frame').hidden = false;
   $('#empty-preview').hidden = true;
   $('#preview-badge').hidden = false;
   $('#clip-track').hidden = false;
@@ -268,7 +269,7 @@ function loadMedia(grant, edits = {}) {
 }
 
 video.onloadedmetadata = () => {
-  if (video.videoWidth && video.videoHeight) video.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+  fitPreviewFrame();
   const total = Number.isFinite(video.duration) ? video.duration : 0;
   $('#total-time').textContent = fmt(total);
   $('#timeline-duration').textContent = fmt(total).slice(0, 5);
@@ -310,11 +311,22 @@ function syncEditControls() {
   $('#zoom-tool').classList.toggle('selected', zoomLevel !== 1);
   $('#text-tool').classList.toggle('selected', textItems.length > 0);
 }
+// The frame is the exported picture: the video's shape, or the stage's shape when cropping to fill.
+// It is fitted inside the stage so the whole picture shows, and text positions are relative to it.
+function fitPreviewFrame() {
+  const stage = $('#preview-stage'), frame = $('#preview-frame');
+  const stageWidth = stage.clientWidth, stageHeight = stage.clientHeight;
+  if (!stageWidth || !stageHeight) return;
+  const aspect = cropEnabled || !video.videoWidth ? stageWidth / stageHeight : video.videoWidth / video.videoHeight;
+  const width = Math.min(stageWidth, stageHeight * aspect);
+  frame.style.width = `${Math.floor(width)}px`;
+  frame.style.height = `${Math.floor(width / aspect)}px`;
+}
+new ResizeObserver(fitPreviewFrame).observe($('#preview-stage'));
 function applyViewTransform() {
   video.style.transform = `scale(${zoomLevel})`;
   video.style.objectFit = cropEnabled ? 'cover' : 'contain';
-  video.style.width = cropEnabled ? '100%' : 'auto';
-  video.style.height = cropEnabled ? '100%' : 'auto';
+  fitPreviewFrame();
 }
 const hasEdits = () => zoomLevel !== 1 || cropEnabled || textItems.length > 0;
 function requireClip() {
@@ -471,7 +483,7 @@ $('#export-start').onclick = async () => {
 async function renderEditedClip(sendChunk) {
   const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
   canvas.width = video.videoWidth - (video.videoWidth % 2);
-  const stage = $('#preview-stage'), stageWidth = stage.clientWidth || canvas.width, stageHeight = stage.clientHeight || video.videoHeight;
+  const frame = $('#preview-frame'), stageWidth = frame.clientWidth || canvas.width, stageHeight = frame.clientHeight || video.videoHeight;
   canvas.height = cropEnabled ? Math.max(2, Math.round(canvas.width / (stageWidth / stageHeight) / 2) * 2) : video.videoHeight - (video.videoHeight % 2);
   if (!canvas.width || !canvas.height) throw new Error('The video is not ready to export.');
   const oldTime = video.currentTime, wasPaused = video.paused, oldVolume = video.volume, oldMuted = video.muted, raf = { id: 0 };
