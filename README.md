@@ -11,6 +11,12 @@ too.
 Everything runs on your computer: recordings, editing and voice-overs never leave it, and the app makes no network
 requests of its own.
 
+![Styling a text overlay, then a zoom gliding in and back out during playback](docs/screenshots/demo.gif)
+
+**Watch the 90-second demo, with sound:**
+
+https://github.com/user-attachments/assets/089a3ef4-0883-4d8f-8113-a061dd212731
+
 ## Getting started
 
 **Download** the installer for Windows, macOS or Linux from
@@ -29,6 +35,8 @@ checksums.
    Recording and WebM export work without it.
 
 ## Let an agent make the video
+
+![Agent control: a local MCP server, off until you turn it on, with the token hidden](docs/screenshots/agent.png)
 
 1. Open **Agent control** in the sidebar and turn on **Allow AI agents to record and edit**.
 2. Press **Copy** next to *Add to Claude Code* and run that command in a terminal. It looks like
@@ -83,6 +91,14 @@ copy in narration it made another way.
   agent's config will store it: press **New token** if it leaks.
 
 ## Recording and editing yourself
+
+| Pick what to record | Place zooms on the timeline |
+|---|---|
+| ![Choosing an app window to record](docs/screenshots/record.png) | ![A zoom selected in the editor, with the box that marks where it zooms](docs/screenshots/editor-zoom.png) |
+
+![The floating bar while an agent records, with the AGENT badge](docs/screenshots/bar-agent.png)
+
+![The editor with a styled text overlay on the timeline](docs/screenshots/editor-text.png)
 
 * **New recording** (Ctrl R, ⌘ R on macOS): pick a screen or app window, optionally system audio and your
   microphone. A floating bar lets you pause, stop or bring the studio back; it is kept out of the recording.
