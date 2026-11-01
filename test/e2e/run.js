@@ -203,6 +203,13 @@ async function run() {
     const end = document.querySelector('#selected-end'); end.value = '0.5'; end.dispatchEvent(new Event('change'));
     return true;
   })()`);
+  await inStudio(`(() => {
+    const set = (id, value, type) => { const input = document.querySelector(id); if (input.type === 'checkbox') input.checked = value; else input.value = value; input.dispatchEvent(new Event(type, { bubbles: true })); };
+    set('#text-font', 'georgia', 'change'); set('#text-size', '96', 'input'); set('#text-italic', true, 'change'); set('#text-color', '#ffd400', 'input'); set('#text-bg-opacity', '0', 'input');
+    return true;
+  })()`);
+  const styled = JSON.parse(await inStudio(`(() => { const s = getComputedStyle(document.querySelector('#text-overlay-layer .preview-text')); return JSON.stringify({ family: s.fontFamily, style: s.fontStyle, color: s.color, background: s.backgroundColor }); })()`));
+  check('text style shows in the preview', /Georgia/.test(styled.family) && styled.style === 'italic' && styled.color === 'rgb(255, 212, 0)' && styled.background === 'rgba(0, 0, 0, 0)', JSON.stringify(styled));
   check('text and zoom appear on their timeline tracks', await inStudio('document.querySelectorAll("#text-lane .edit-block").length === 1 && document.querySelectorAll("#zoom-lane .edit-block").length === 1'));
   // let go of the selection by clicking an empty spot, which also jumps to 1 s of the clip
   await inStudio(`(() => { const area = document.querySelector('#track-area'), r = area.getBoundingClientRect(), v = document.querySelector('#preview-video');

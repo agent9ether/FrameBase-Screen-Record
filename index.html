@@ -60,7 +60,13 @@
                 <label class="inspector-check"><input type="checkbox" id="crop-check"> Crop to fill the frame</label>
                 <div class="selected-edit" id="selected-edit" hidden>
                   <h3 id="selected-title">Selected</h3>
-                  <label class="inspector-field" id="selected-text-field"><span>Text</span><input type="text" id="selected-text" maxlength="500"></label>
+                  <label class="inspector-field" id="selected-text-field"><span>Text <small class="field-note">Enter for a new line</small></span><textarea id="selected-text" maxlength="500" rows="2"></textarea></label>
+                  <div class="text-style" id="text-style-fields">
+                    <div class="font-row"><label class="inspector-field"><span>Font</span><select id="text-font"></select></label><div class="style-toggles"><label class="toggle-chip" title="Bold"><input type="checkbox" id="text-bold"><b>B</b></label><label class="toggle-chip" title="Italic"><input type="checkbox" id="text-italic"><i>I</i></label></div></div>
+                    <label class="inspector-field"><span>Size <b id="text-size-value">48</b></span><input type="range" id="text-size" min="12" max="200" step="1" value="48"></label>
+                    <div class="inspector-field"><span>Text color</span><div class="color-row"><input type="color" id="text-color" value="#ffffff" title="Pick any color"><div class="swatches" id="text-swatches"></div></div></div>
+                    <div class="inspector-field"><span>Background <b id="text-bg-value">55%</b></span><div class="color-row"><input type="color" id="text-bg" value="#000000" title="Background color"><input type="range" id="text-bg-opacity" min="0" max="100" step="5" value="55" aria-label="Background opacity"></div></div>
+                  </div>
                   <label class="inspector-field" id="selected-level-field"><span>Zoom <b id="zoom-value">150%</b></span><input type="range" id="zoom-range" min="110" max="300" step="5" value="150"></label>
                   <p class="inspector-hint" id="selected-zoom-hint">Drag the box on the preview to choose where to zoom. It eases in and out.</p>
                   <div class="time-fields"><label>Starts at (s)<input type="number" id="selected-start" min="0" step="0.1"></label><label>Ends at (s)<input type="number" id="selected-end" min="0" step="0.1"></label></div>

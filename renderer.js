@@ -344,6 +344,8 @@ function fitPreviewFrame() {
   const width = Math.min(stageWidth, stageHeight * aspect);
   frame.style.width = `${Math.floor(width)}px`;
   frame.style.height = `${Math.floor(width / aspect)}px`;
+  // text sizes are pixels of a 1080-pixel-tall frame
+  frame.style.setProperty('--text-scale', String(Math.floor(width / aspect) / 1080));
 }
 new ResizeObserver(fitPreviewFrame).observe($('#preview-stage'));
 
@@ -392,8 +394,12 @@ function renderTextNodes() {
       layer.append(node);
     }
     node.textContent = item.text;
-    node.style.left = `${item.x}%`;
-    node.style.top = `${item.y}%`;
+    Object.assign(node.style, {
+      left: `${item.x}%`, top: `${item.y}%`,
+      fontFamily: editTiming.FONTS[item.font].css, fontSize: `calc(var(--text-scale, 0.4) * ${item.size}px)`,
+      fontWeight: item.bold ? '700' : '400', fontStyle: item.italic ? 'italic' : 'normal',
+      color: item.color, background: item.backgroundOpacity > 0 ? editTiming.rgba(item.background, item.backgroundOpacity) : 'transparent'
+    });
     node.classList.toggle('selected', item === selected);
   });
 }
@@ -491,12 +497,56 @@ function renderSelected() {
   const text = isTextItem(selected);
   $('#selected-title').textContent = text ? 'Selected text' : 'Selected zoom';
   $('#selected-text-field').hidden = !text;
+  $('#text-style-fields').hidden = !text;
   $('#selected-level-field').hidden = text;
   $('#selected-zoom-hint').hidden = text;
-  if (text) { if (document.activeElement !== $('#selected-text')) $('#selected-text').value = selected.text; }
-  else { $('#zoom-range').value = String(Math.round(selected.level * 100)); $('#zoom-value').textContent = `${Math.round(selected.level * 100)}%`; }
+  if (text) {
+    if (document.activeElement !== $('#selected-text')) $('#selected-text').value = selected.text;
+    syncTextStyleFields();
+  } else { $('#zoom-range').value = String(Math.round(selected.level * 100)); $('#zoom-value').textContent = `${Math.round(selected.level * 100)}%`; }
   syncSelectedTimes();
 }
+function syncTextStyleFields() {
+  $('#text-font').value = selected.font;
+  $('#text-size').value = String(selected.size);
+  $('#text-size-value').textContent = String(selected.size);
+  $('#text-bold').checked = selected.bold;
+  $('#text-italic').checked = selected.italic;
+  $('#text-color').value = selected.color;
+  $('#text-bg').value = selected.background;
+  $('#text-bg-opacity').value = String(selected.backgroundOpacity);
+  $('#text-bg-value').textContent = selected.backgroundOpacity ? `${selected.backgroundOpacity}%` : 'Off';
+  $$('#text-swatches button').forEach(swatch => swatch.classList.toggle('selected', swatch.dataset.color === selected.color));
+}
+
+// text style: the selected text changes as you edit, and new text starts with the last style used
+let lastTextStyle = { ...editTiming.TEXT_STYLE };
+$('#text-font').replaceChildren(...Object.entries(editTiming.FONTS).map(([key, font]) => {
+  const option = el('option', { value: key, textContent: font.label });
+  option.style.fontFamily = font.css;
+  return option;
+}));
+['#ffffff', '#111111', '#ffd400', '#d6f279', '#ff5a4f', '#4fa3ff', '#ff7bd5'].forEach(color => {
+  const swatch = el('button', { type: 'button', title: color });
+  swatch.dataset.color = color;
+  swatch.style.background = color;
+  swatch.onclick = () => setTextStyle({ color });
+  $('#text-swatches').append(swatch);
+});
+function setTextStyle(change) {
+  if (!selected || !isTextItem(selected)) return;
+  Object.assign(selected, editTiming.textStyle({ ...selected, ...change }));
+  lastTextStyle = editTiming.textStyle(selected);
+  syncTextStyleFields();
+  renderTextNodes();
+}
+$('#text-font').onchange = event => setTextStyle({ font: event.target.value });
+$('#text-size').oninput = event => setTextStyle({ size: Number(event.target.value) });
+$('#text-bold').onchange = event => setTextStyle({ bold: event.target.checked });
+$('#text-italic').onchange = event => setTextStyle({ italic: event.target.checked });
+$('#text-color').oninput = event => setTextStyle({ color: event.target.value });
+$('#text-bg').oninput = event => setTextStyle({ background: event.target.value, backgroundOpacity: selected && selected.backgroundOpacity === 0 ? 55 : selected?.backgroundOpacity });
+$('#text-bg-opacity').oninput = event => setTextStyle({ backgroundOpacity: Number(event.target.value) });
 function syncSelectedTimes() {
   if (!selected) return;
   [['#selected-start', selected.start], ['#selected-end', selected.end]].forEach(([id, value]) => {
@@ -519,7 +569,7 @@ function removeEdit(item) {
   editsChanged();
 }
 function addText(text) {
-  const item = { text, x: 38, y: 44, ...editTiming.placeAt(video.currentTime || 0, videoDuration()) };
+  const item = { text, x: 38, y: 44, ...editTiming.placeAt(video.currentTime || 0, videoDuration()), ...lastTextStyle };
   textItems.push(item);
   editsChanged();
   select(item);
@@ -687,6 +737,8 @@ async function renderEditedClip(sendChunk) {
   const frame = $('#preview-frame'), stageWidth = frame.clientWidth || canvas.width, stageHeight = frame.clientHeight || video.videoHeight;
   canvas.height = cropEnabled ? Math.max(2, Math.round(canvas.width / (stageWidth / stageHeight) / 2) * 2) : video.videoHeight - (video.videoHeight % 2);
   if (!canvas.width || !canvas.height) throw new Error('The video is not ready to export.');
+  // the canvas only draws a font once it is loaded
+  await Promise.all(textItems.map(item => document.fonts.load(editTiming.fontCss(item, 40), item.text).catch(() => [])));
   const oldTime = video.currentTime, wasPaused = video.paused, oldVolume = video.volume, oldMuted = video.muted, raf = { id: 0 };
   const draw = () => {
     ctx.fillStyle = '#000';
@@ -698,19 +750,24 @@ async function renderEditedClip(sendChunk) {
     ctx.setTransform(view.level, 0, 0, view.level, view.tx * canvas.width, view.ty * canvas.height);
     ctx.drawImage(video, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // drawn like the preview's .preview-text: 0.25em padding, 1.25 line height, 0.12em corners, a soft shadow
     editTiming.textsAt(textItems, time).forEach(item => {
-      const fontSize = Math.max(16, (20 * canvas.width) / stageWidth);
-      ctx.font = `600 ${fontSize}px Manrope, Arial, sans-serif`;
+      const fontSize = (item.size * canvas.height) / 1080;
+      ctx.font = editTiming.fontCss(item, fontSize);
       ctx.textBaseline = 'top';
       const lines = String(item.text).split('\n'), lineHeight = fontSize * 1.25, pad = fontSize * 0.25;
       const maxWidth = Math.max(...lines.map(line => ctx.measureText(line).width), 1);
       const x = (item.x / 100) * canvas.width, y = (item.y / 100) * canvas.height;
-      ctx.fillStyle = 'rgba(0,0,0,.5)';
-      ctx.fillRect(x, y, maxWidth + pad * 2, lines.length * lineHeight + pad * 2);
-      ctx.fillStyle = '#fff';
-      ctx.shadowColor = '#000';
+      if (item.backgroundOpacity > 0) {
+        ctx.fillStyle = editTiming.rgba(item.background, item.backgroundOpacity);
+        ctx.beginPath();
+        ctx.roundRect(x, y, maxWidth + pad * 2, lines.length * lineHeight + pad * 2, fontSize * 0.12);
+        ctx.fill();
+      }
+      ctx.fillStyle = item.color;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
       ctx.shadowBlur = fontSize * 0.2;
-      lines.forEach((line, index) => ctx.fillText(line, x + pad, y + pad + index * lineHeight));
+      lines.forEach((line, index) => ctx.fillText(line, x + pad, y + pad + index * lineHeight + (lineHeight - fontSize) / 2));
       ctx.shadowBlur = 0;
     });
   };

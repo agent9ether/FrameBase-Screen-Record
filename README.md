@@ -86,7 +86,10 @@ copy in narration it made another way.
 * **Home** and **Media library** list the videos in that folder, including what agents make.
 * The **editor** plays a clip and places **text** and **zooms** on the timeline. **＋ Text** and **＋ Zoom** add one
   at the playhead, lasting 3 seconds; drag it on its track to move it, or drag its edges to change when it starts and
-  ends (or type exact times in the Properties panel). Drag text on the preview to position it. While a zoom is
+  ends (or type exact times in the Properties panel). Drag text on the preview to position it, and give each text
+  its own font, size, bold or italic, color and background (color and opacity) in the Properties panel; new text
+  starts with the last style you used. Manrope, DM Sans and DM Mono come with the app; the other fonts are the
+  computer's own, and a similar font stands in where one is missing (mostly on Linux). While a zoom is
   selected, a box on the preview shows the area it zooms into: drag the box, and set how far with the slider. Zooms
   ease in and out. *Crop to fill the frame* applies to the whole clip. Select an item and press Delete to remove it.
 * **Export**: MP4 (needs FFmpeg) or WebM. Without edits the clip is copied or converted directly; with zoom, crop or

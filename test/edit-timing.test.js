@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeEdits, fitToDuration, placeAt, textsAt, zoomAt, zoomView, stackRows, MAX_SECONDS } = require('../edit-timing');
+const { normalizeEdits, textStyle, fontCss, rgba, TEXT_STYLE, fitToDuration, placeAt, textsAt, zoomAt, zoomView, stackRows, MAX_SECONDS } = require('../edit-timing');
 
 const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-9, `${message}: ${actual} is not ${expected}`);
 
@@ -43,7 +43,7 @@ test('older projects become whole-clip edits, and bad values are cleaned', () =>
   const old = normalizeEdits({ zoomLevel: 1.5, cropEnabled: true, textItems: [{ text: 'Hi', x: 10, y: 20 }] });
   assert.equal(old.cropEnabled, true);
   assert.deepEqual(old.zooms, [{ level: 1.5, x: 50, y: 50, start: 0, end: MAX_SECONDS }]);
-  assert.deepEqual(old.textItems, [{ text: 'Hi', x: 10, y: 20, start: 0, end: MAX_SECONDS }]);
+  assert.deepEqual(old.textItems, [{ text: 'Hi', x: 10, y: 20, start: 0, end: MAX_SECONDS, ...TEXT_STYLE }]);
   assert.deepEqual(normalizeEdits({ zoomLevel: 1 }).zooms, []);
   const messy = normalizeEdits({ zooms: [{ level: 9, x: -5, y: 'a', start: 5, end: 2 }, null], textItems: [{ text: 7 }, { text: 'x'.repeat(900), start: -3 }] });
   assert.deepEqual(messy.zooms, [{ level: 3, x: 0, y: 50, start: 5, end: 5.2 }]);
@@ -70,4 +70,14 @@ test('overlapping items stack into rows', () => {
   assert.equal(rows.get(b), 1);
   assert.equal(rows.get(c), 0, 'reuses a row once it is free');
   assert.equal(stackRows([]).count, 1);
+});
+
+test('text style is cleaned, and turned into a font and colours', () => {
+  assert.deepEqual(textStyle({}), TEXT_STYLE);
+  assert.deepEqual(textStyle({ font: 'georgia', size: 500, bold: false, italic: true, color: '#FF0000', background: 'red', backgroundOpacity: -4 }),
+    { font: 'georgia', size: 200, bold: false, italic: true, color: '#ff0000', background: '#000000', backgroundOpacity: 0 });
+  assert.equal(textStyle({ font: 'url(evil)' }).font, 'manrope', 'only known fonts');
+  assert.equal(fontCss({ font: 'impact', bold: true, italic: true }, 30), "italic 700 30px Impact, 'Arial Black', sans-serif");
+  assert.equal(fontCss({ font: 'dm-mono', bold: false }, 12.5), "400 12.5px 'DM Mono', monospace");
+  assert.equal(rgba('#ff8000', 55), 'rgba(255, 128, 0, 0.55)');
 });

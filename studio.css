@@ -89,3 +89,19 @@
 .preview-text.selected{outline:1px dashed var(--lime)}.preview-text[hidden]{display:none}
 .preview-frame video{transform-origin:0 0}
 .zoom-box{position:absolute;box-sizing:border-box;border:2px solid var(--lime);background:#cde4700f;box-shadow:0 0 0 9999px #0000006b;cursor:move;touch-action:none;color:var(--lime);font:9px 'DM Mono',monospace;padding:3px 5px;z-index:3}.zoom-box[hidden]{display:none}
+
+/* text style: the preview text is sized against a 1080-pixel-tall frame (--text-scale) and drawn the same way on export */
+.preview-frame .preview-text{padding:.25em;line-height:1.25;border-radius:.12em;white-space:pre;text-shadow:0 0 .2em #000c}
+.text-style{display:grid;gap:10px}.text-style[hidden]{display:none}
+.font-row{display:flex;align-items:flex-end;gap:8px}.font-row .inspector-field{flex:1;min-width:0}
+.text-style select{height:28px;border:1px solid #303437;border-radius:5px;background:#0d0f10;color:#e6e8e2;padding:0 6px;font:10px 'DM Sans',sans-serif}
+.style-toggles{display:flex;gap:4px}
+.toggle-chip{position:relative;width:28px;height:28px;display:grid;place-items:center;border:1px solid #303437;border-radius:5px;background:#0d0f10;color:#c3c6bf;font-size:12px;cursor:pointer}
+.toggle-chip input{position:absolute;opacity:0;pointer-events:none}.toggle-chip:has(input:checked){border-color:var(--lime);color:var(--lime);background:#1b2010}
+.toggle-chip:has(input:focus-visible){outline:1px solid var(--lime)}
+.color-row{display:flex;align-items:center;gap:8px}.color-row input[type=range]{flex:1;min-width:0;accent-color:var(--lime)}
+.color-row input[type=color]{width:30px;height:26px;padding:0;border:1px solid #303437;border-radius:5px;background:#0d0f10;cursor:pointer;flex:none}
+.swatches{display:flex;flex-wrap:wrap;gap:5px}.swatches button{width:18px;height:18px;border-radius:50%;border:1px solid #ffffff40;padding:0;cursor:pointer}
+.swatches button.selected{outline:2px solid var(--lime);outline-offset:1px}
+.inspector-field textarea{min-height:46px;resize:vertical;border:1px solid #303437;border-radius:5px;background:#0d0f10;color:#e6e8e2;padding:6px 8px;font:10px/1.4 'DM Sans',sans-serif}
+.field-note{color:#6d7375;font-size:9px;margin-left:4px}
