@@ -105,3 +105,12 @@
 .swatches button.selected{outline:2px solid var(--lime);outline-offset:1px}
 .inspector-field textarea{min-height:46px;resize:vertical;border:1px solid #303437;border-radius:5px;background:#0d0f10;color:#e6e8e2;padding:6px 8px;font:10px/1.4 'DM Sans',sans-serif}
 .field-note{color:#6d7375;font-size:9px;margin-left:4px}
+/* the Properties column is fixed width: let its contents shrink to it, and wrap long file names instead of widening it */
+.inspector{min-width:0}
+.inspector-panel,.inspector-field,.selected-edit{grid-template-columns:minmax(0,1fr)}
+.inspector-panel>*{min-width:0}
+.clip-facts{grid-template-columns:auto minmax(0,1fr)}.clip-facts dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.inspector-field input:not([type=checkbox]):not([type=color]),.inspector-field select,.inspector-field textarea{width:100%;min-width:0;box-sizing:border-box}
+.time-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.time-fields input{width:100%}
+.color-row .swatches{flex:1;min-width:0}
+.edit-list li{min-width:0}.edit-list li>*{min-width:0}

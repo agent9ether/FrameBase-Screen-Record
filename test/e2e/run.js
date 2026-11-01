@@ -210,6 +210,10 @@ async function run() {
   })()`);
   const styled = JSON.parse(await inStudio(`(() => { const s = getComputedStyle(document.querySelector('#text-overlay-layer .preview-text')); return JSON.stringify({ family: s.fontFamily, style: s.fontStyle, color: s.color, background: s.backgroundColor }); })()`));
   check('text style shows in the preview', /Georgia/.test(styled.family) && styled.style === 'italic' && styled.color === 'rgb(255, 212, 0)' && styled.background === 'rgba(0, 0, 0, 0)', JSON.stringify(styled));
+  const stray = await inStudio(`(() => { const box = document.querySelector('.inspector').getBoundingClientRect();
+    return [...document.querySelectorAll('.inspector *')].filter(e => e.getClientRects().length).map(e => [e, e.getBoundingClientRect()])
+      .filter(([, r]) => r.width && (r.right > box.right + 0.5 || r.left < box.left - 0.5)).map(([e]) => e.id || e.className).slice(0, 5); })()`);
+  check('everything in the Properties panel fits inside it', stray.length === 0, stray.join(', '));
   check('text and zoom appear on their timeline tracks', await inStudio('document.querySelectorAll("#text-lane .edit-block").length === 1 && document.querySelectorAll("#zoom-lane .edit-block").length === 1'));
   // let go of the selection by clicking an empty spot, which also jumps to 1 s of the clip
   await inStudio(`(() => { const area = document.querySelector('#track-area'), r = area.getBoundingClientRect(), v = document.querySelector('#preview-video');
