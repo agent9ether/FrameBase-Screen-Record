@@ -15,7 +15,7 @@ requests of its own.
 
 **Watch the 90-second demo, with sound:**
 
-https://github.com/user-attachments/assets/fb07d94c-6900-40a7-83fd-726ff684016c
+https://github.com/user-attachments/assets/089a3ef4-0883-4d8f-8113-a061dd212731
 
 ## Getting started
 
