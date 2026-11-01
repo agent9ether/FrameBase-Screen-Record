@@ -1,54 +1,142 @@
 # FrameBase Studio
 
-A desktop screen recorder with a built-in editing space. The first version includes screen and window capture, a local recording workflow, video import and preview, a basic timeline, and file export.
+[![CI](https://github.com/agent9ether/FrameBase-Screen-Record/actions/workflows/ci.yml/badge.svg)](https://github.com/agent9ether/FrameBase-Screen-Record/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+A desktop screen recorder and editor that **AI agents can drive**. Ask Claude Code, Codex or any MCP client to
+record an app window, look at what it captured, write and voice a script, cut the clips together and add captions,
+and get a finished product review, feature demo or tutorial back. People can use every part of it without an agent
+too.
+
+Everything runs on your computer: recordings, editing and voice-overs never leave it, and the app makes no network
+requests of its own.
 
 ## Getting started
 
-1. Install [Node.js](https://nodejs.org/).
-2. In this folder, run `npm install`.
-3. Run `npm start`.
+**Download** the installer for Windows, macOS or Linux from
+[Releases](https://github.com/agent9ether/FrameBase-Screen-Record/releases). The builds aren't code-signed yet, so
+Windows SmartScreen says *Windows protected your PC* (choose **More info › Run anyway**), and macOS says the app
+can't be checked (right-click it in Applications, choose **Open**, then **Open** again). Each release lists SHA-256
+checksums.
 
-On Windows, choose a screen or app window in the recording dialog and allow the system's capture permission prompt. Recordings remain on your device.
+**Or run it from source:**
 
-## Current scope
+1. Install [Node.js](https://nodejs.org/) 20 or newer.
+2. Clone this repository, run `npm install` in it, then `npm start`.
 
-- Electron desktop shell
-- Screen or app-window recording with an explicit source picker
-- System audio loopback on Windows, with optional microphone audio mixed in
-- Always-on-top floating controls while recording, so the full studio can stay hidden
-- Fixed WebM duration metadata so recordings can seek correctly in the editor
-- Microphone option
-- Import and preview local video files
-- Starter editing workspace with preview, inspector, and timeline layout
-- Export of complete source clips as WebM, plus MP4 conversion with FFmpeg installed
-- Save and reopen portable `.framebase` project files with their source video
-- Preview zoom, crop framing, and draggable text overlays
+**Either way**, for editing tools (trim, join, voice-over mixing, captions, MP4 export), install FFmpeg and make sure it is on
+   PATH: `winget install Gyan.FFmpeg` on Windows, `brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux.
+   Recording and WebM export work without it.
 
-## Agent control (optional MCP server)
+## Let an agent make the video
 
-FrameBase can let an AI agent such as Claude Code or Codex start and stop recordings. It is **off by default**.
-
-1. Open **Agent control** in the sidebar and turn on **Allow AI agents to record**.
+1. Open **Agent control** in the sidebar and turn on **Allow AI agents to record and edit**.
 2. Press **Copy** next to *Add to Claude Code* and run that command in a terminal. It looks like
    `claude mcp add --transport http framebase http://127.0.0.1:47615/mcp --header "Authorization: Bearer <token>"`.
-3. Ask the agent to record an app window.
+   For other MCP clients, copy the JSON config instead.
+3. Ask the agent, for example: *"Use FrameBase to make a two-minute narrated review of the Notes app."*
+
+Clients that support MCP prompts also get a `product_review` prompt, and the server sends its own workflow
+instructions. For Claude Code there is a skill with more detail in
+[agent-skills/framebase-video-production](agent-skills/framebase-video-production/SKILL.md): copy that folder into
+`~/.claude/skills/` (or your project's `.claude/skills/`).
+
+### Tools
 
 | Tool | What it does |
 |---|---|
 | `list_sources` | App windows that can be recorded (screens too, if you allow them) |
-| `start_recording` | Start recording a window by `source_id` or `window_title`; optional system audio, microphone and `max_seconds` (default 600) |
-| `pause_recording` / `resume_recording` | Pause or resume |
-| `stop_recording` | Stop and save to `Documents\FrameBase Recordings`; returns the file path |
-| `recording_status` | Running or not, seconds so far, last saved file |
-| `list_recordings` | Recent files in the recordings folder |
-| `convert_to_mp4` | Convert a saved recording to MP4 (needs FFmpeg on PATH) |
+| `start_recording` | Record a window by `source_id` or `window_title`; optional `system_audio` (Windows, macOS 14.2+), `microphone` (if allowed) and `max_seconds` (default 600, paused time does not count) |
+| `pause_recording` / `resume_recording` | Pause or resume a recording the agent started |
+| `stop_recording` | Stop and save; returns the file |
+| `recording_status` | Running or not, recorded seconds, last saved file |
+| `workspace_info` | The recordings folder, whether FFmpeg is installed, what you allow |
+| `list_files` / `list_recordings` | Videos, audio, images and captions in the folder |
+| `media_info` | Length, resolution and audio of a file |
+| `extract_frame` | Saves a PNG and returns it as an image, so the agent can see what it recorded |
+| `trim_video` | Keep part of a video |
+| `join_videos` | Join clips in order, fitted to the first clip's frame |
+| `generate_voiceover` / `list_voices` | Turn a script into a WAV with the computer's own speech voices, offline |
+| `add_audio` | Put a voice-over or music on a video (mix with or replace its sound); holds the last frame if the audio is longer |
+| `add_captions` | Burn in timed text, from a list of lines or an `.srt` file |
+| `convert_video` / `convert_to_mp4` | Convert to MP4 or WebM |
+| `open_in_editor` | Open a result in the FrameBase editor for you to review |
 
-How it stays safe:
+Editing tools need FFmpeg. Burned-in captions also need an FFmpeg build with libass (the `subtitles` filter); slim
+builds leave it out, and `workspace_info` reports `captions: false` in that case. Voice-overs use Windows speech, macOS `say`, or `espeak-ng` on Linux; an agent can also
+copy in narration it made another way.
 
-* Listens on `127.0.0.1` only, needs a bearer token (stored encrypted with the operating system), and refuses browser requests.
-* Agents can only record **app windows** unless you tick *Also allow whole screens*.
-* A floating **AGENT** control bar stays on screen while an agent records, and you can stop at any time. Recordings stop by themselves after `max_seconds`.
-* An agent can only stop recordings it started, and can only convert files inside the recordings folder.
-* Every call is written to `agent-audit.log` in the app's data folder. Turning the switch off stops the server.
+### How it stays safe
 
-Zoom, crop framing, and draggable text overlays are available in the preview and are saved with the project. Export preserves the full source clip; MP4 and format conversion require FFmpeg on PATH.
+* Off by default. Listens on `127.0.0.1` only, needs a bearer token stored encrypted by the operating system
+  (`safeStorage`; on Linux a system keyring is required), and refuses any request with an `Origin` header or a
+  `Host` other than `127.0.0.1:<port>` / `localhost:<port>`.
+* Agents can record **app windows** only, unless you tick *Also allow whole screens*. They cannot record the
+  microphone unless you tick *Allow agents to record the microphone*.
+* A floating **AGENT** bar stays on screen while an agent records and you can stop it at any time. An agent can only
+  pause or stop recordings it started, and recordings stop by themselves after `max_seconds`.
+* File tools only read files inside the recordings folder (symlinks are checked) and always write new files; they
+  never overwrite or delete anything.
+* Every call, and every refused request, is written to `agent-audit.log` in the app's data folder (rotated at 5 MB).
+  Turning the switch off stops the server and any agent recording.
+* The address stays the same across restarts unless the port is taken. Copied commands contain the token, and your
+  agent's config will store it: press **New token** if it leaks.
+
+## Recording and editing yourself
+
+* **New recording** (Ctrl R, ⌘ R on macOS): pick a screen or app window, optionally system audio and your
+  microphone. A floating bar lets you pause, stop or bring the studio back; it is kept out of the recording.
+* The floating bar also stays on screen while you are not recording, with a **Record** button that opens the source
+  picker. Hide it with its ✕ and bring it back from **View › Floating Record Bar**.
+* **System audio** works on Windows and on macOS 14.2 or newer. macOS asks for permission the first time (System
+  Settings › Privacy & Security › Screen & System Audio Recording). When you run from source with `npm start`, macOS
+  asks about your terminal app instead, and it may not offer system audio at all; the built app (`npm run dist`)
+  carries its own permission text. If macOS refuses, FrameBase says so instead of recording silence.
+* Recordings are written to `Documents/FrameBase Recordings` **while you record**. If the app or computer stops
+  mid-recording, the next start keeps what was written as `…-recovered.webm`. Quitting while recording stops and
+  saves first. Closing the recorded window stops the recording.
+* **Home** and **Media library** list the videos in that folder, including what agents make.
+* The **editor** plays a clip and places **text** and **zooms** on the timeline. **＋ Text** and **＋ Zoom** add one
+  at the playhead, lasting 3 seconds; drag it on its track to move it, or drag its edges to change when it starts and
+  ends (or type exact times in the Properties panel). Drag text on the preview to position it, and give each text
+  its own font, size, bold or italic, color and background (color and opacity) in the Properties panel; new text
+  starts with the last style you used. Manrope, DM Sans and DM Mono come with the app; the other fonts are the
+  computer's own, and a similar font stands in where one is missing (mostly on Linux). While a zoom is
+  selected, a box on the preview shows the area it zooms into: drag the box, and set how far and how slowly it eases
+  in and out (0.2 to 2 seconds, 0.8 by default) with the sliders. Zooms pivot smoothly around the point they
+  aim at, a zoom that starts inside another one eases from that view rather than jumping, and zooms less than a
+  quarter second apart glide straight from one to the next instead of zooming out in between. *Crop to fill the
+  frame* applies to the whole clip. Select an item and press Delete to remove it. Press Space to play or pause the
+  preview (not while typing in a field).
+* **Export**: MP4 (needs FFmpeg) or WebM. Without edits the clip is copied or converted directly; with zoom, crop or
+  text, the clip plays once in real time to render them in.
+* **Save project** writes a small `.framebase` file that points to the video and stores your edits with their times. Keep the two
+  together. Older project files still open: their zoom and text cover the whole clip, and ones that embedded the
+  video write it out to the recordings folder once.
+
+## Development
+
+```bash
+npm start          # run the app
+npm test           # unit tests: agent server, media tools, WebM duration (FFmpeg tests skip without FFmpeg)
+npm run test:e2e   # drives the real app end to end; opens windows on your screen for about a minute
+npm run lint
+npm run pack       # unpacked build in release/
+npm run dist       # installer (NSIS on Windows, dmg on macOS, AppImage on Linux)
+```
+
+Builds are not code-signed, so Windows SmartScreen and macOS Gatekeeper will warn. There is no auto-update.
+
+Pushing a version tag (`v0.1.0`, matching `package.json`) runs the [release workflow](.github/workflows/release.yml),
+which builds the installers on all three platforms and attaches them to a draft GitHub release to check and publish.
+
+## Contributing
+
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[code of conduct](CODE_OF_CONDUCT.md). Please report security problems privately, as described in
+[SECURITY.md](SECURITY.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+[MIT](LICENSE) © 2026 agent9ether and FrameBase contributors. The bundled Manrope, DM Sans and DM Mono fonts are
+under the SIL Open Font License 1.1. FFmpeg is not bundled; it is used from your PATH under its own license.

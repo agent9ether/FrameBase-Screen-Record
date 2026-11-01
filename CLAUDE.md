@@ -1,6 +1,6 @@
 # CLAUDE.md: FrameBase Studio
 
-Desktop screen recorder with a built-in editing space. Electron 38, plain JS (no bundler, no framework). Read
+Desktop screen recorder and editor that people and AI agents (via MCP) can drive. Electron 45, plain JS (no bundler, no framework). Read
 [README.md](README.md) first.
 
 ## Commands
@@ -8,34 +8,46 @@ Desktop screen recorder with a built-in editing space. Electron 38, plain JS (no
 ```bash
 npm install
 npm start          # electron .
+npm test           # node:test unit tests (agent server, media tools, WebM duration)
+npm run test:e2e   # drives the real app end to end; opens windows on screen
+npm run lint       # ESLint flat config
+npm run pack       # electron-builder --dir (release/ is ignored)
 ```
 
-There is currently **no** lint, test, typecheck or packaging setup (package.json only has `start`). Adding them is part
-of the build-out: tests for `agent-server.js` first, then a linter and an electron-builder config. Until they exist,
-verify by running the app and say what you could not verify.
+Run `npm test` and `npm run lint`, plus `npm run test:e2e` for anything touching recording, IPC or the agent. Say what
+you could not verify (macOS/Linux, multi-monitor, a real microphone and system audio need a manual run).
 
 ## Layout
 
 | File | Role |
 |---|---|
-| `main.js` | Main process: windows, capture source handling (`setDisplayMediaRequestHandler`), IPC handlers, agent controller, save-to-disk |
-| `preload.js` | The only bridge to the renderer (`window.studio`); every method here is attack surface |
-| `renderer.js`, `index.html`, `styles.css`, `player-controls.css`, `capture-picker.css` | Main UI, MediaRecorder capture, editor/player |
-| `mini-control.{html,js,css}` | Floating recording control, including the AGENT badge |
-| `agent-server.js` | Agent-control MCP server (Streamable HTTP, stateless per request) |
+| `main.js` | Main process: windows, permission and display-media handlers, `framebase-media://` scheme, sender-checked IPC, streaming recordings to disk, recovery, agent controller |
+| `preload.js` | Studio bridge (`window.studio`), sandboxed; every method here is attack surface |
+| `control-preload.js` | Floating bar bridge (`window.controls`): record (opens the picker), pause, stop, show studio, hide bar only |
+| `renderer.js`, `index.html`, `styles.css`, `studio.css`, `player-controls.css`, `capture-picker.css`, `fonts.css` | Main UI, MediaRecorder capture, library, editor, export |
+| `mini-control.{html,js,css}` | Floating bar: idle Record button, recording controls, the AGENT badge |
+| `agent-server.js` | Agent-control MCP server (Streamable HTTP, stateless per request), tools and prompt |
+| `media-tools.js` | FFmpeg and OS speech helpers confined to the recordings folder; used by agents and export |
+| `webm-duration.js` | Writes the duration into MediaRecorder WebM files |
+| `edit-timing.js` | Timed text and zoom: what shows at a moment, zoom easing, project edit cleanup (studio, main and tests) |
 | `agent-ui.js`, `agent.css` | Agent settings page and `window.__agentStart` |
+| `agent-skills/` | Claude Code skill for the video-production workflow |
+| `test/`, `test/e2e/run.js` | Unit tests and the real-app end-to-end run |
 
-Recordings are saved to `Documents\FrameBase Recordings\FrameBase-<stamp>.webm`. Agent settings live in userData
+Recordings stream to `Documents/FrameBase Recordings/FrameBase-<stamp>-<id>.webm.part` while recording and become
+`FrameBase-<stamp>.webm` when finished; leftover `.part` files are recovered on start. Agent settings live in userData
 (`agent-control.json`) and the audit log in `agent-audit.log`.
 
 ## Agent control (the part to be most careful with)
 
-- Binds to `127.0.0.1` only, default port 47615, falls back to a random port.
+- Binds to `127.0.0.1` only, default port 47615 (the last port is remembered), falls back to a random port.
 - Bearer token, stored encrypted with `safeStorage`; compared by sha256 + `timingSafeEqual`.
 - Host header must be `127.0.0.1:<port>` or `localhost:<port>`; any `Origin` header is rejected (DNS rebinding and
   browser-origin defence).
-- Starting a capture uses `executeJavaScript(..., true)` for the user gesture; screens need `allowScreens` on.
-- Every tool call is audit-logged; recordings have an auto-stop timer and show the AGENT badge.
+- Starting a capture uses `executeJavaScript(..., true)` for the user gesture; screens need `allowScreens` on and the
+  microphone needs `allowMicrophone` on. `display-capture` is only granted while a picked source is pending.
+- Media tools only read files inside the recordings folder (symlinks checked) and only write new files.
+- Every tool call and refused request is audit-logged; recordings have an auto-stop limit and show the AGENT badge.
 - Don't weaken any of this to make something easier.
 
 ## Non-negotiables

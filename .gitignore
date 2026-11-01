@@ -5,3 +5,11 @@ release/
 .DS_Store
 Thumbs.db
 npm-debug.log*
+*.log
+.env
+.env.*
+# app data that should never be committed if copied here by mistake
+agent-control.json
+*.framebase
+*.webm
+*.webm.part
