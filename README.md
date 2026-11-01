@@ -13,6 +13,10 @@ requests of its own.
 
 ![Styling a text overlay, then a zoom gliding in and back out during playback](docs/screenshots/demo.gif)
 
+**Watch the 90-second demo, with sound:**
+
+https://github.com/user-attachments/assets/fb07d94c-6900-40a7-83fd-726ff684016c
+
 ## Getting started
 
 **Download** the installer for Windows, macOS or Linux from
