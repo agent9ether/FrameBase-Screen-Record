@@ -277,12 +277,33 @@ function showStudio() {
   studioWindow.webContents.send('studio:focus-editor');
 }
 
+const REPO_URL = 'https://github.com/agent9ether/FrameBase-Screen-Record';
+function showAbout() {
+  const options = { type: 'info', title: 'About FrameBase Studio', message: `FrameBase Studio ${app.getVersion()}`,
+    detail: `Electron ${process.versions.electron}
+
+Copyright (c) 2026 agent9ether and FrameBase contributors.
+Released under the MIT License.`, buttons: ['OK'] };
+  const parent = BrowserWindow.getFocusedWindow();
+  return parent ? dialog.showMessageBox(parent, options) : dialog.showMessageBox(options);
+}
+
 function buildMenu() {
   const template = [
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : [{ label: 'File', submenu: [{ role: 'quit' }] }]),
     { role: 'editMenu' },
     { label: 'View', submenu: [{ label: 'Floating Record Bar', type: 'checkbox', checked: uiSettings.floatingBar, click: item => setFloatingBar(item.checked) }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }, ...(app.isPackaged ? [] : [{ type: 'separator' }, { role: 'toggleDevTools' }])] },
-    { role: 'windowMenu' }
+    { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: [
+        // macOS has About in the app menu
+        ...(process.platform === 'darwin' ? [] : [{ label: 'About FrameBase Studio', click: showAbout }, { type: 'separator' }]),
+        // these only open the browser when clicked
+        { label: 'Report an Issue', click: () => shell.openExternal(`${REPO_URL}/issues/new/choose`) },
+        { label: 'Source Code', click: () => shell.openExternal(REPO_URL) }
+      ]
+    }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

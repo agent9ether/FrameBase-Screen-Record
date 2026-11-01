@@ -3,6 +3,29 @@
   "version": "0.1.0",
   "private": true,
   "description": "Screen recorder and video editor that people and AI agents (via MCP) can drive",
+  "license": "MIT",
+  "author": "agent9ether",
+  "homepage": "https://github.com/agent9ether/FrameBase-Screen-Record#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agent9ether/FrameBase-Screen-Record.git"
+  },
+  "bugs": {
+    "url": "https://github.com/agent9ether/FrameBase-Screen-Record/issues"
+  },
+  "keywords": [
+    "screen-recorder",
+    "video-editor",
+    "electron",
+    "mcp",
+    "model-context-protocol",
+    "ai-agents",
+    "claude-code",
+    "screencast"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -30,10 +53,10 @@
     "@modelcontextprotocol/sdk": "^1.32.2",
     "zod": "^4.6.7"
   },
-  "author": "agent9ether",
   "build": {
     "appId": "dev.framebase.studio",
     "productName": "FrameBase Studio",
+    "copyright": "Copyright (c) 2026 agent9ether and FrameBase contributors",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -53,6 +76,7 @@
       "mini-control.js",
       "*.css",
       "build/icon.png",
+      "LICENSE",
       "package.json"
     ],
     "asar": true,

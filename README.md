@@ -1,5 +1,8 @@
 # FrameBase Studio
 
+[![CI](https://github.com/agent9ether/FrameBase-Screen-Record/actions/workflows/ci.yml/badge.svg)](https://github.com/agent9ether/FrameBase-Screen-Record/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A desktop screen recorder and editor that **AI agents can drive**. Ask Claude Code, Codex or any MCP client to
 record an app window, look at what it captured, write and voice a script, cut the clips together and add captions,
 and get a finished product review, feature demo or tutorial back. People can use every part of it without an agent
@@ -10,9 +13,18 @@ requests of its own.
 
 ## Getting started
 
+**Download** the installer for Windows, macOS or Linux from
+[Releases](https://github.com/agent9ether/FrameBase-Screen-Record/releases). The builds aren't code-signed yet, so
+Windows SmartScreen says *Windows protected your PC* (choose **More info › Run anyway**), and macOS says the app
+can't be checked (right-click it in Applications, choose **Open**, then **Open** again). Each release lists SHA-256
+checksums.
+
+**Or run it from source:**
+
 1. Install [Node.js](https://nodejs.org/) 20 or newer.
-2. In this folder, run `npm install`, then `npm start`.
-3. For editing tools (trim, join, voice-over mixing, captions, MP4 export), install FFmpeg and make sure it is on
+2. Clone this repository, run `npm install` in it, then `npm start`.
+
+**Either way**, for editing tools (trim, join, voice-over mixing, captions, MP4 export), install FFmpeg and make sure it is on
    PATH: `winget install Gyan.FFmpeg` on Windows, `brew install ffmpeg` on macOS, `apt install ffmpeg` on Linux.
    Recording and WebM export work without it.
 
@@ -93,7 +105,9 @@ copy in narration it made another way.
   selected, a box on the preview shows the area it zooms into: drag the box, and set how far and how slowly it eases
   in and out (0.2 to 2 seconds, 0.8 by default) with the sliders. Zooms pivot smoothly around the point they
   aim at, a zoom that starts inside another one eases from that view rather than jumping, and zooms less than a
-  quarter second apart glide straight from one to the next instead of zooming out in between. *Crop to fill the frame* applies to the whole clip. Select an item and press Delete to remove it. Press Space to play or pause the preview (not while typing in a field).
+  quarter second apart glide straight from one to the next instead of zooming out in between. *Crop to fill the
+  frame* applies to the whole clip. Select an item and press Delete to remove it. Press Space to play or pause the
+  preview (not while typing in a field).
 * **Export**: MP4 (needs FFmpeg) or WebM. Without edits the clip is copied or converted directly; with zoom, crop or
   text, the clip plays once in real time to render them in.
 * **Save project** writes a small `.framebase` file that points to the video and stores your edits with their times. Keep the two
@@ -112,3 +126,17 @@ npm run dist       # installer (NSIS on Windows, dmg on macOS, AppImage on Linux
 ```
 
 Builds are not code-signed, so Windows SmartScreen and macOS Gatekeeper will warn. There is no auto-update.
+
+Pushing a version tag (`v0.1.0`, matching `package.json`) runs the [release workflow](.github/workflows/release.yml),
+which builds the installers on all three platforms and attaches them to a draft GitHub release to check and publish.
+
+## Contributing
+
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[code of conduct](CODE_OF_CONDUCT.md). Please report security problems privately, as described in
+[SECURITY.md](SECURITY.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+[MIT](LICENSE) © 2026 agent9ether and FrameBase contributors. The bundled Manrope, DM Sans and DM Mono fonts are
+under the SIL Open Font License 1.1. FFmpeg is not bundled; it is used from your PATH under its own license.
