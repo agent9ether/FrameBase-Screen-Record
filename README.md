@@ -93,7 +93,7 @@ copy in narration it made another way.
   selected, a box on the preview shows the area it zooms into: drag the box, and set how far and how slowly it eases
   in and out (0.2 to 2 seconds, 0.8 by default) with the sliders. Zooms pivot smoothly around the point they
   aim at, a zoom that starts inside another one eases from that view rather than jumping, and zooms less than a
-  quarter second apart glide straight from one to the next instead of zooming out in between. *Crop to fill the frame* applies to the whole clip. Select an item and press Delete to remove it.
+  quarter second apart glide straight from one to the next instead of zooming out in between. *Crop to fill the frame* applies to the whole clip. Select an item and press Delete to remove it. Press Space to play or pause the preview (not while typing in a field).
 * **Export**: MP4 (needs FFmpeg) or WebM. Without edits the clip is copied or converted directly; with zoom, crop or
   text, the clip plays once in real time to render them in.
 * **Save project** writes a small `.framebase` file that points to the video and stores your edits with their times. Keep the two

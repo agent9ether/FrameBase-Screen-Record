@@ -221,6 +221,14 @@ async function run() {
   check('zoom applies inside its time', (await zoomScale()) > 1.5, String(await zoomScale()));
   await seek(0.2);
   check('text shows inside its time', await textVisible());
+  const pressSpace = () => inStudio(`document.body.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space', key: ' ', bubbles: true, cancelable: true })); true`);
+  await pressSpace();
+  await sleep(300);
+  check('Space plays the preview', !(await inStudio('document.querySelector("#preview-video").paused')));
+  await pressSpace();
+  await sleep(100);
+  check('Space pauses the preview', await inStudio('document.querySelector("#preview-video").paused'));
+  await seek(0.2);
   await inStudio(`(() => {
     document.querySelector('#export-video').click();
     document.querySelector('#export-modal [data-format="webm"]').click();

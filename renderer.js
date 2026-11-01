@@ -647,6 +647,16 @@ $('#play-toggle').onclick = () => {
     video.play().catch(error => { console.error('Video playback failed:', error); alert('This video could not be played. Try recording again or importing a different file.'); });
   } else video.pause();
 };
+// Space plays and pauses the editor preview, unless typing in a field or a dialog is open
+const TYPING_INPUTS = ['text', 'number', 'search', 'email', 'url', 'password'];
+document.addEventListener('keydown', event => {
+  if (event.code !== 'Space' || event.repeat || event.ctrlKey || event.metaKey || event.altKey || !pages.editor.classList.contains('active-page')) return;
+  const target = event.target;
+  if (target.closest('textarea, select, [contenteditable]') || (target.matches('input') && TYPING_INPUTS.includes(target.type))) return;
+  if (!$('#record-modal').hidden || !$('#export-modal').hidden || !$('#source-picker').hidden) return;
+  event.preventDefault(); // also stops a focused button from clicking and the page from scrolling
+  $('#play-toggle').click();
+});
 video.ontimeupdate = updatePlayhead;
 video.onplay = () => { $('#play-toggle').textContent = 'Ⅱ'; cancelAnimationFrame(playheadFrame); playheadFrame = requestAnimationFrame(animatePlayhead); };
 video.onpause = () => { $('#play-toggle').textContent = '▶'; cancelAnimationFrame(playheadFrame); updatePlayhead(); };
