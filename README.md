@@ -1,3 +1,6 @@
+<img width="1156" height="388" alt="framebaseimage" src="https://github.com/user-attachments/assets/180f6ec5-69b0-4f72-b302-2ddc2f1e4e4f" />
+
+
 # FrameBase Studio
 
 [![CI](https://github.com/agent9ether/FrameBase-Screen-Record/actions/workflows/ci.yml/badge.svg)](https://github.com/agent9ether/FrameBase-Screen-Record/actions/workflows/ci.yml)
