@@ -4,6 +4,8 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-01
+
 ### Added
 - Help › Report a Bug opens GitHub's bug form with the version and system filled in; Help › Suggest a Feature opens the
   feature form.
@@ -32,5 +34,6 @@ All notable changes are listed here. Versions follow [semantic versioning](https
   local only, needs a token, is limited by permissions you choose, and logs every call.
 - A Claude Code skill for the video-production workflow.
 
-[Unreleased]: https://github.com/agent9ether/FrameBase-Screen-Record/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/agent9ether/FrameBase-Screen-Record/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/agent9ether/FrameBase-Screen-Record/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/agent9ether/FrameBase-Screen-Record/releases/tag/v0.1.0
