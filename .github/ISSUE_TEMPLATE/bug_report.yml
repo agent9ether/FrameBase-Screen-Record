@@ -24,7 +24,7 @@ body:
     id: version
     attributes:
       label: FrameBase version
-      description: Help › About FrameBase Studio (on macOS, FrameBase Studio › About). Say if you run it from source.
+      description: Filled in when you use Help › Report a Bug in the app; otherwise see Help › About FrameBase Studio (on macOS, FrameBase Studio › About), and say if you run it from source.
     validations:
       required: true
   - type: dropdown

@@ -148,7 +148,8 @@ which builds the installers on all three platforms and attaches them to a draft 
 
 ## Contributing
 
-Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and the
+Found a bug? In the app, **Help › Report a Bug** opens GitHub's bug form with your FrameBase version and system already
+filled in (it only opens your browser; nothing is sent until you submit). Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [code of conduct](CODE_OF_CONDUCT.md). Please report security problems privately, as described in
 [SECURITY.md](SECURITY.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
