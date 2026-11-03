@@ -68,6 +68,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          (cd installers && sha256sum * > SHA256SUMS.txt)
+          # GitHub turns spaces in uploaded file names into dots; rename first so SHA256SUMS.txt matches the downloads
+          (cd installers && for f in *\ *; do [ -e "$f" ] && mv "$f" "${f// /.}"; done; sha256sum * > SHA256SUMS.txt)
           gh release create "$GITHUB_REF_NAME" installers/* --repo "$GITHUB_REPOSITORY" --draft --generate-notes \
             --title "FrameBase Studio ${GITHUB_REF_NAME#v}"
