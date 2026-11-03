@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
   <title>FrameBase Recording Controls</title><link rel="stylesheet" href="mini-control.css">
 </head>
 <body>
   <main class="control-strip">
     <div class="drag-handle" aria-hidden="true">⠿</div>
-    <div class="brand"><span class="mark">▥</span><span>FRAMEBASE <i>STUDIO</i></span></div>
+    <div class="brand"><img class="mark" src="assets/logo-mark.png" alt=""><span>FRAMEBASE <i>STUDIO</i></span></div>
     <span class="separator"></span>
     <div class="recording-state"><span class="pulse"></span><span id="state-label">RECORDING</span><strong id="clock">00:00</strong><em class="agent-badge" id="agent-badge" hidden title="This recording was started by an AI agent">AGENT</em></div>
     <button class="control-button record" id="record" title="Pick a screen or window and start recording"><span>●</span> Record</button>
