@@ -4,8 +4,13 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-03
+
 ### Changed
 - A new logo: the app icon and installers, the sidebar, the floating bar and the About box.
+
+### Fixed
+- `SHA256SUMS.txt` on the release page now uses the same file names as the downloads, so `sha256sum -c` works.
 
 ## [0.1.1] - 2026-11-01
 
@@ -37,6 +42,7 @@ All notable changes are listed here. Versions follow [semantic versioning](https
   local only, needs a token, is limited by permissions you choose, and logs every call.
 - A Claude Code skill for the video-production workflow.
 
-[Unreleased]: https://github.com/agent9ether/FrameBase-Screen-Record/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/agent9ether/FrameBase-Screen-Record/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/agent9ether/FrameBase-Screen-Record/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/agent9ether/FrameBase-Screen-Record/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/agent9ether/FrameBase-Screen-Record/releases/tag/v0.1.0
