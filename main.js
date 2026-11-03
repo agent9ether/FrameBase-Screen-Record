@@ -285,7 +285,7 @@ function showAbout() {
     detail: `Electron ${process.versions.electron}
 
 Copyright (c) 2026 agent9ether and FrameBase contributors.
-Released under the MIT License.`, buttons: ['OK'] };
+Released under the MIT License.`, buttons: ['OK'], icon: path.join(__dirname, 'build', 'icon.png') };
   const parent = BrowserWindow.getFocusedWindow();
   return parent ? dialog.showMessageBox(parent, options) : dialog.showMessageBox(options);
 }

@@ -4,6 +4,9 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Changed
+- A new logo: the app icon and installers, the sidebar, the floating bar and the About box.
+
 ## [0.1.1] - 2026-11-01
 
 ### Added

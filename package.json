@@ -76,6 +76,7 @@
       "mini-control.js",
       "*.css",
       "build/icon.png",
+      "assets/logo-mark.png",
       "LICENSE",
       "package.json"
     ],
