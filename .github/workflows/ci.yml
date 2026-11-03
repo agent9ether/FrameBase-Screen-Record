@@ -45,7 +45,18 @@ jobs:
         run: brew install ffmpeg
       - name: Install FFmpeg (Windows)
         if: runner.os == 'Windows'
-        run: choco install ffmpeg -y --no-progress
+        shell: pwsh
+        run: |
+          # Chocolatey's server sometimes times out, and choco then installs nothing but still exits 0,
+          # so try a few times and fail here, clearly, if FFmpeg still isn't there
+          for ($i = 1; $i -le 3; $i++) {
+            choco install ffmpeg -y --no-progress
+            if (Test-Path 'C:\ProgramData\chocolatey\bin\ffmpeg.exe') { exit 0 }
+            Write-Host "FFmpeg did not install (attempt $i of 3)"
+            if ($i -lt 3) { Start-Sleep -Seconds 30 }
+          }
+          Write-Error 'Could not install FFmpeg from Chocolatey'
+          exit 1
       - run: npm ci --ignore-scripts
       - name: Unit tests
         shell: bash
@@ -65,7 +76,19 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: choco install ffmpeg -y --no-progress
+      - name: Install FFmpeg
+        shell: pwsh
+        run: |
+          # Chocolatey's server sometimes times out, and choco then installs nothing but still exits 0,
+          # so try a few times and fail here, clearly, if FFmpeg still isn't there
+          for ($i = 1; $i -le 3; $i++) {
+            choco install ffmpeg -y --no-progress
+            if (Test-Path 'C:\ProgramData\chocolatey\bin\ffmpeg.exe') { exit 0 }
+            Write-Host "FFmpeg did not install (attempt $i of 3)"
+            if ($i -lt 3) { Start-Sleep -Seconds 30 }
+          }
+          Write-Error 'Could not install FFmpeg from Chocolatey'
+          exit 1
       - run: npm ci --ignore-scripts
       - name: Download the Electron binary
         run: node node_modules/electron/install.js
